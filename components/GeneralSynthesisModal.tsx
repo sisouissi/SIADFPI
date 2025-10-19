@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Modal from './Modal';
 import { Consultation, Patient } from '../types';
-import { generateGeneralSynthesis } from '../services/geminiService';
+import { generateGeneralSynthesis } from '../services/deepseekService';
 import { parseMarkdown } from '../services/markdownParser';
 import { ExclamationTriangleIcon, PaperAirplaneIcon } from '../constants';
 import jsPDF from 'jspdf';

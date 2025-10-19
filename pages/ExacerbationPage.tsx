@@ -1,14 +1,14 @@
 import React from 'react';
 import ContentSection from '../components/ContentSection';
 import InfoCapsule from '../components/InfoCapsule';
-import GeminiSummarizer from '../components/GeminiSummarizer';
+import AiAssistant from '../components/AiAssistant';
 import InternalLink from '../components/InternalLink';
 import { LightBulbIcon, ShieldExclamationIcon, ClipboardListIcon, MagnifyingGlassIcon, PillIcon, ChartBarIcon } from '../constants';
 
 const ExacerbationPage: React.FC = () => (
   <div>
     <h1 className="text-4xl font-bold text-slate-900 mb-8">Exacerbation Aiguë de la FPI (EAFPI)</h1>
-    <GeminiSummarizer />
+    <AiAssistant />
 
     <ContentSection title="Définition et Bilan Diagnostique">
         <InfoCapsule title="Définition" icon={LightBulbIcon}>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './Modal';
 import { Consultation, Patient } from '../types';
-import { generateConsultationSynthesis } from '../services/geminiService';
+import { generateConsultationSynthesis } from '../services/deepseekService';
 import { parseMarkdown } from '../services/markdownParser';
 import { ExclamationTriangleIcon } from '../constants';
 import jsPDF from 'jspdf';

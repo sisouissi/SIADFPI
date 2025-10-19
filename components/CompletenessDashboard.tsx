@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { DMDFormData, Patient, Consultation } from '../types';
 import { checklistSections } from '../services/checklist';
 import { CheckCircleIcon, XCircleIcon, ExclamationTriangleIcon, SparklesIcon } from '../constants';
-import { generateExamSuggestions } from '../services/geminiService';
+import { generateExamSuggestions } from '../services/deepseekService';
 import { parseMarkdown } from '../services/markdownParser';
 
 interface CompletenessDashboardProps {

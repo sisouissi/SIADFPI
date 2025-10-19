@@ -1,7 +1,7 @@
 import React from 'react';
 import ContentSection from '../components/ContentSection';
 import InfoCapsule from '../components/InfoCapsule';
-import GeminiSummarizer from '../components/GeminiSummarizer';
+import AiAssistant from '../components/AiAssistant';
 import PrognosisChart from '../components/PrognosisChart';
 import ProgressionCalculator from '../components/ProgressionCalculator';
 import Accordion from '../components/Accordion';
@@ -11,7 +11,7 @@ import { UserGroupIcon, ChartBarIcon, TrendingDownIcon } from '../constants';
 const PrognosisPage: React.FC = () => (
   <div>
     <h1 className="text-4xl font-bold text-slate-900 mb-8">Évaluation du Pronostic</h1>
-    <GeminiSummarizer />
+    <AiAssistant />
     <ContentSection title="Facteurs Pronostiques Initiaux">
         <InfoCapsule title="Facteurs Démographiques et Cliniques" icon={UserGroupIcon}>
             <ul className="list-disc list-inside space-y-1">

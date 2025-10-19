@@ -1,14 +1,14 @@
 import React from 'react';
 import ContentSection from '../components/ContentSection';
 import InfoCapsule from '../components/InfoCapsule';
-import GeminiSummarizer from '../components/GeminiSummarizer';
+import AiAssistant from '../components/AiAssistant';
 import InternalLink from '../components/InternalLink';
 import { PillIcon, HeartIcon, BeakerIcon } from '../constants';
 
 const TreatmentPage: React.FC = () => (
   <div>
     <h1 className="text-4xl font-bold text-slate-900 mb-8">Traitement de la FPI</h1>
-    <GeminiSummarizer />
+    <AiAssistant />
     
     <ContentSection title="Traitements Pharmacologiques de Fond">
       <InfoCapsule title="Nintedanib (Ofev®)" icon={PillIcon}>

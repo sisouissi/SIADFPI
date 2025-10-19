@@ -1,13 +1,13 @@
 import React from 'react';
 import ContentSection from '../components/ContentSection';
 import InfoCapsule from '../components/InfoCapsule';
-import GeminiSummarizer from '../components/GeminiSummarizer';
+import AiAssistant from '../components/AiAssistant';
 import { BookOpenIcon, MicroscopeIcon, UserGroupIcon, LightBulbIcon, LinkIcon } from '../constants';
 
 const IntroductionPage: React.FC = () => (
   <div>
     <h1 className="text-4xl font-bold text-slate-900 mb-8">Introduction et Objectif du Guide</h1>
-    <GeminiSummarizer />
+    <AiAssistant />
     <ContentSection title="Présentation Générale de la FPI">
       <InfoCapsule title="Définition" icon={BookOpenIcon}>
         <p>La Fibrose Pulmonaire Idiopathique (FPI) est la forme la plus fréquente et la plus sévère des pneumopathies interstitielles idiopathiques. C'est une maladie chronique, progressive et irréversible.</p>

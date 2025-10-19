@@ -1,14 +1,14 @@
 import React from 'react';
 import ContentSection from '../components/ContentSection';
 import InfoCapsule from '../components/InfoCapsule';
-import GeminiSummarizer from '../components/GeminiSummarizer';
+import AiAssistant from '../components/AiAssistant';
 import InternalLink from '../components/InternalLink';
 import { GlobeAltIcon, ChartBarIcon, ExclamationTriangleIcon, UserGroupIcon } from '../constants';
 
 const EpidemiologyPage: React.FC = () => (
   <div>
     <h1 className="text-4xl font-bold text-slate-900 mb-8">Épidémiologie</h1>
-    <GeminiSummarizer />
+    <AiAssistant />
     <ContentSection title="Incidence, Prévalence et Facteurs de Risque">
         <InfoCapsule title="Incidence et Prévalence" icon={GlobeAltIcon}>
             <p><strong>Incidence :</strong> 0,2 à 93,7 cas / 100 000 habitants par an, en augmentation mondiale.</p>

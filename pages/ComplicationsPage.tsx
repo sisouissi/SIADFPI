@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ContentSection from '../components/ContentSection';
 import InfoCapsule from '../components/InfoCapsule';
-import GeminiSummarizer from '../components/GeminiSummarizer';
+import AiAssistant from '../components/AiAssistant';
 import { HeartIcon, ExclamationTriangleIcon } from '../constants';
 import Modal from '../components/Modal';
 
@@ -114,7 +114,7 @@ const ComplicationsPage: React.FC = () => {
   return (
     <div>
       <h1 className="text-4xl font-bold text-slate-900 mb-8">Autres Complications et Comorbidités</h1>
-      <GeminiSummarizer />
+      <AiAssistant />
       <ContentSection title="Pathologies Associées Fréquentes">
         <InfoCapsule id="complication-htp" title="Hypertension Pulmonaire (HTP)" icon={HeartIcon}>
           <p>Complication fréquente et grave, surtout aux stades avancés. À suspecter si la dyspnée est disproportionnée. Dépistage par échocardiographie.</p>
