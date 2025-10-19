@@ -1,0 +1,20 @@
+@keyframes highlight-fade {
+  from { box-shadow: 0 0 15px 5px #38BDF8; background-color: rgba(56, 189, 248, 0.2); }
+  to { box-shadow: 0 0 0 0 transparent; background-color: transparent; }
+}
+.highlight-scroll {
+  animation: highlight-fade 2s ease-out;
+  border-radius: 0.75rem; /* Corresponds to rounded-xl */
+}
+@keyframes scale-in {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out forwards;
+}
+/* Amélioration de la disposition des listes à puces pour une meilleure lisibilité */
+main ul.list-inside, main ol.list-inside {
+  list-style-position: outside;
+  padding-left: 1.5rem; /* ~pl-6. Assure que le texte est aligné après un retour à la ligne. */
+}

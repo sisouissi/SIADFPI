@@ -1,0 +1,5 @@
+{
+  "name": "Système Interactif d'Aide au Diagnostic de la FPI",
+  "description": "Un système interactif d'aide au diagnostic (SIAD) pour la Fibrose Pulmonaire Idiopathique (FPI), basé sur les guides de pratique clinique tunisiens de 2022. L'application intègre un guide clinique, un algorithme diagnostique, un assistant IA et un module de gestion des dossiers patients.",
+  "requestFramePermissions": []
+}
