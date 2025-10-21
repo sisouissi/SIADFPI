@@ -6,6 +6,7 @@ import { generateGeneralSynthesis } from '../services/geminiService';
 import { parseMarkdown } from '../services/markdownParser';
 import { ExclamationTriangleIcon, PaperAirplaneIcon } from '../constants';
 import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface GeneralSynthesisModalProps {
     isOpen: boolean;
@@ -30,6 +31,7 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
     const [error, setError] = useState<string | null>(null);
     const printableAreaRef = useRef<HTMLDivElement>(null);
 
+    // FIX: Switched to streaming call for generateGeneralSynthesis.
     useEffect(() => {
         if (isOpen && patient && consultations.length > 0) {
             const generateReport = async () => {
@@ -38,8 +40,6 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
                 setReport(''); // Use empty string to accumulate chunks
                 let fullReport = '';
                 try {
-                    // FIX: Adapt the call to the streaming function `generateGeneralSynthesis`
-                    // by providing an `onChunk` callback to handle streaming data.
                     await generateGeneralSynthesis(patient, consultations, (chunk: string) => {
                         fullReport += chunk;
                         setReport(fullReport); // This will show the streaming text
@@ -84,36 +84,84 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
     })();
 
     const handlePrint = () => {
-        const contentToPrint = printableAreaRef.current?.innerHTML;
-        if (contentToPrint && patient) {
-            const printWindow = window.open('', '_blank', 'height=800,width=800');
-            if (printWindow) {
-                printWindow.document.write('<html><head><title>Synthèse Générale du Dossier Patient</title>');
-                printWindow.document.write(`<style> @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap'); body { font-family: 'Poppins', sans-serif; line-height: 1.6; color: #334155; margin: 2rem; } h1, h2, h3 { color: #0F172A; } h3 { border-bottom: 1px solid #E2E8F0; padding-bottom: 0.5rem; margin-top: 1.5rem; } .recharts-wrapper { margin: 0 auto; } @media print { body { -webkit-print-color-adjust: exact; } } </style>`);
-                printWindow.document.write('</head><body>');
-                printWindow.document.write(contentToPrint);
-                printWindow.document.write('</body></html>');
-                printWindow.document.close();
-                printWindow.focus();
-                setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
-            }
+        const contentToPrint = printableAreaRef.current;
+        if (!contentToPrint) return;
+
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+            printWindow.document.write('<html><head><title>Synthèse Générale du Dossier Patient</title>');
+            printWindow.document.write(`<style>
+                @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+                @page { margin: 1.5cm; }
+                body { font-family: 'Poppins', sans-serif; line-height: 1.6; color: #334155; margin: 0; }
+                h1, h2, h3 { color: #0F172A; } h3 { border-bottom: 1px solid #E2E8F0; padding-bottom: 0.5rem; margin-top: 1.5rem; } 
+                .recharts-wrapper { margin: 0 auto; max-width: 100%; }
+                @media print { 
+                    body { -webkit-print-color-adjust: exact; }
+                    h1, h2, h3, h4, h5, h6 { page-break-after: avoid; }
+                    p, ul, table, .recharts-wrapper { page-break-inside: avoid; }
+                }
+            </style>`);
+            printWindow.document.write('</head><body>');
+            printWindow.document.write(contentToPrint.innerHTML);
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
         }
     };
 
-    const generatePdfBlob = (): Promise<Blob> => {
-        return new Promise((resolve) => {
+    const generatePdf = async (): Promise<jsPDF> => {
+        return new Promise((resolve, reject) => {
             const element = printableAreaRef.current;
-            if (!element) return;
-            const pdf = new jsPDF('p', 'pt', 'a4');
-            pdf.html(element, {
-                callback: (doc) => {
-                    resolve(doc.output('blob'));
-                },
-                x: 15,
-                y: 15,
-                width: 565,
-                windowWidth: element.scrollWidth,
-                html2canvas: { scale: 0.75, useCORS: true }
+            if (!element) {
+                reject(new Error("Element to print not found."));
+                return;
+            }
+    
+            const originalWidth = element.style.width;
+            element.style.width = '800px';
+    
+            html2canvas(element, { 
+                scale: 2, 
+                useCORS: true, 
+                windowWidth: element.scrollWidth 
+            }).then(canvas => {
+                element.style.width = originalWidth;
+    
+                const pdf = new jsPDF('p', 'pt', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                const margin = 42.5;
+    
+                const imgWidth = pdfWidth - margin * 2;
+                const imgHeight = canvas.height * imgWidth / canvas.width;
+                const pageContentHeight = pdfHeight - margin * 2;
+    
+                let heightLeft = imgHeight;
+                let position = 0;
+    
+                pdf.addImage(canvas, 'PNG', margin, margin, imgWidth, imgHeight);
+                heightLeft -= pageContentHeight;
+    
+                while (heightLeft > 0) {
+                    position -= pageContentHeight;
+                    pdf.addPage();
+                    pdf.addImage(canvas, 'PNG', margin, position, imgWidth, imgHeight);
+                    heightLeft -= pageContentHeight;
+                }
+    
+                const pageCount = pdf.internal.getNumberOfPages();
+                for (let i = 1; i <= pageCount; i++) {
+                    pdf.setPage(i);
+                    pdf.setFontSize(9);
+                    pdf.setTextColor(128);
+                    pdf.text(`Page ${i} / ${pageCount}`, pdfWidth / 2, pdfHeight - 20, { align: 'center' });
+                }
+                resolve(pdf);
+            }).catch(err => {
+                element.style.width = originalWidth;
+                reject(err);
             });
         });
     };
@@ -121,17 +169,16 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
     const handleDownloadPdf = async () => {
         if (!patient) return;
         setIsDownloading(true);
-        const blob = await generatePdfBlob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        const date = new Date().toISOString().slice(0, 10);
-        a.download = `synthese-generale-${patient.lastName}-${date}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        setIsDownloading(false);
+        try {
+            const pdf = await generatePdf();
+            const date = new Date().toISOString().slice(0, 10);
+            pdf.save(`synthese-generale-${patient.lastName}-${date}.pdf`);
+        } catch(err) {
+            console.error("Erreur de génération PDF : ", err);
+            alert("Une erreur est survenue lors de la génération du PDF.");
+        } finally {
+            setIsDownloading(false);
+        }
     };
 
     const handleShare = async () => {
@@ -142,7 +189,8 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
 
         setIsSharing(true);
         try {
-            const blob = await generatePdfBlob();
+            const pdf = await generatePdf();
+            const blob = pdf.output('blob');
             const date = new Date().toISOString().slice(0, 10);
             const filename = `synthese-generale-${patient.lastName}-${date}.pdf`;
             const file = new File([blob], filename, { type: 'application/pdf' });

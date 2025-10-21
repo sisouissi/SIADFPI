@@ -590,7 +590,14 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
             printWindow.document.write('<html><head><title>Rapport de Consultation</title>');
             printWindow.document.write(`<style>
                 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
-                @page { margin: 1.5cm; }
+                @page { 
+                    margin: 1.5cm;
+                    @bottom-center {
+                        content: "Page " counter(page) " / " counter(pages);
+                        font-size: 9pt;
+                        color: #808080;
+                    }
+                }
                 body { font-family: 'Poppins', sans-serif; line-height: 1.6; color: #334155; margin: 0; }
                 h1, h2, h3, h4 { color: #0F172A; margin: 0; }
                 .ai-report-content h2, .ai-report-content h3, .ai-report-content h4 {
@@ -604,6 +611,8 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
                 @media print { 
                     body { -webkit-print-color-adjust: exact; } 
                     .no-print { display: none; }
+                    h1, h2, h3, h4, h5, h6 { page-break-after: avoid; }
+                    p, ul, table { page-break-inside: avoid; }
                 }
             </style>`);
             printWindow.document.write('</head><body>');
@@ -618,55 +627,68 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
     const handleDownloadPdf = () => {
         const element = reportToPrintRef.current;
         if (!element || !patient) return;
-
+    
         setIsDownloading(true);
-        html2canvas(element, { scale: 2, useCORS: true, windowWidth: 1200 })
-            .then((canvas) => {
-                const pdf = new jsPDF('p', 'pt', 'a4');
-                const pdfWidth = pdf.internal.pageSize.getWidth();
-                const margin = 42.5; // 1.5cm
-                const contentWidth = pdfWidth - (margin * 2);
-
-                const canvasWidth = canvas.width;
-                const canvasHeight = canvas.height;
-                const canvasRatio = canvasHeight / canvasWidth;
-                const contentHeight = contentWidth * canvasRatio;
-
-                let heightLeft = contentHeight;
-                let position = 0;
-                
-                pdf.addImage(canvas, 'PNG', margin, position + margin, contentWidth, contentHeight, undefined, 'FAST');
-                heightLeft -= (pdf.internal.pageSize.getHeight() - (margin * 2));
-
-                while (heightLeft > 0) {
-                    position = heightLeft - contentHeight;
-                    pdf.addPage();
-                    pdf.addImage(canvas, 'PNG', margin, position + margin, contentWidth, contentHeight, undefined, 'FAST');
-                    heightLeft -= (pdf.internal.pageSize.getHeight() - (margin * 2));
-                }
-                
-                const pageCount = pdf.internal.getNumberOfPages();
-                for (let i = 1; i <= pageCount; i++) {
-                    pdf.setPage(i);
-                    pdf.setFontSize(9);
-                    pdf.setTextColor(128);
-                    pdf.text(
-                        `Page ${i} / ${pageCount}`,
-                        pdf.internal.pageSize.getWidth() / 2,
-                        pdf.internal.pageSize.getHeight() - 20,
-                        { align: 'center' }
-                    );
-                }
-
-                const date = new Date().toISOString().slice(0, 10);
-                pdf.save(`rapport-${patient.lastName}-${date}.pdf`);
-                setIsDownloading(false);
-            })
-            .catch(err => {
-                console.error("Erreur de génération PDF : ", err);
-                alert("Une erreur est survenue lors de la génération du PDF.");
-                setIsDownloading(false);
-            });
+    
+        // Temporarily set a fixed width on the element to ensure correct wrapping for html2canvas
+        const originalWidth = element.style.width;
+        element.style.width = '800px';
+    
+        html2canvas(element, { 
+            scale: 2, 
+            useCORS: true, 
+            windowWidth: element.scrollWidth // Use the element's scroll width after setting a fixed width
+        })
+        .then((canvas) => {
+            // Restore original width after canvas capture
+            element.style.width = originalWidth;
+    
+            const pdf = new jsPDF('p', 'pt', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const margin = 42.5; // 1.5cm in points
+    
+            const imgWidth = pdfWidth - margin * 2;
+            const imgHeight = canvas.height * imgWidth / canvas.width;
+            const pageContentHeight = pdfHeight - margin * 2;
+    
+            let heightLeft = imgHeight;
+            let position = 0;
+    
+            pdf.addImage(canvas, 'PNG', margin, margin, imgWidth, imgHeight);
+            heightLeft -= pageContentHeight;
+    
+            while (heightLeft > 0) {
+                position -= pageContentHeight;
+                pdf.addPage();
+                pdf.addImage(canvas, 'PNG', margin, position, imgWidth, imgHeight);
+                heightLeft -= pageContentHeight;
+            }
+    
+            const pageCount = pdf.internal.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                pdf.setPage(i);
+                pdf.setFontSize(9);
+                pdf.setTextColor(128);
+                pdf.text(
+                    `Page ${i} / ${pageCount}`,
+                    pdf.internal.pageSize.getWidth() / 2,
+                    pdf.internal.pageSize.getHeight() - 20,
+                    { align: 'center' }
+                );
+            }
+    
+            const date = new Date().toISOString().slice(0, 10);
+            pdf.save(`rapport-${patient.lastName}-${date}.pdf`);
+        })
+        .catch(err => {
+            element.style.width = originalWidth; // Restore on error
+            console.error("Erreur de génération PDF : ", err);
+            alert("Une erreur est survenue lors de la génération du PDF.");
+        })
+        .finally(() => {
+            setIsDownloading(false);
+        });
     };
 
     const baseTests = ['AAN', 'Facteur Rhumatoïde', 'Anti-CCP', 'ANCA', 'CPK'];
@@ -1494,17 +1516,15 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
                     <div ref={reportToPrintRef}>
                          <div className="border-b border-slate-200 pb-4 mb-4">
                             <h1 className="text-2xl font-bold text-slate-800">Rapport de Consultation</h1>
-                            <p className="font-bold text-slate-800">Patient: <span className="font-normal">{patient?.firstName} {patient?.lastName.toUpperCase()}</span></p>
-                            <p className="font-bold text-slate-800">Date: <span className="font-normal">{new Date(initialConsultation.consultationDate).toLocaleDateString('fr-FR')}</span></p>
-                            <p className="font-bold text-slate-800">Médecin Référent: <span className="font-normal">{patient?.referringDoctor}</span></p>
                         </div>
-                        <p className="mb-4 text-sm text-slate-600">La consultation a été enregistrée. Voici la synthèse générée par l'IA qui a été ajoutée à l'observation :</p>
+                        <p className="font-bold text-slate-800">Patient: <span className="font-normal">{patient?.firstName} {patient?.lastName.toUpperCase()}</span></p>
+                        <p className="font-bold text-slate-800">Date: <span className="font-normal">{new Date(initialConsultation.consultationDate).toLocaleDateString('fr-FR')}</span></p>
+                        <p className="font-bold text-slate-800">Médecin Référent: <span className="font-normal">{patient?.referringDoctor}</span></p>
                         
                         {generatedSummary && (
                             <>
-                                <h2 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-3">Synthèse de la Consultation</h2>
                                 <div 
-                                    className="ai-report-content"
+                                    className="ai-report-content mt-4"
                                     dangerouslySetInnerHTML={{ __html: parseMarkdown(generatedSummary) }}
                                 ></div>
                             </>

@@ -5,6 +5,8 @@ import { generateConsultationSynthesis } from '../services/geminiService';
 import { parseMarkdown } from '../services/markdownParser';
 import { ExclamationTriangleIcon } from '../constants';
 import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
 
 interface SynthesisModalProps {
     isOpen: boolean;
@@ -21,6 +23,7 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
     const [error, setError] = useState<string | null>(null);
     const printableAreaRef = useRef<HTMLDivElement>(null);
 
+    // FIX: Switched to streaming call for generateConsultationSynthesis.
     useEffect(() => {
         if (isOpen && consultation && patient) {
             const generateReport = async () => {
@@ -29,14 +32,11 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
                 setReport(''); // Use empty string to accumulate chunks
                 let fullReport = '';
                 try {
-                    // FIX: Adapt the call to the streaming function `generateConsultationSynthesis`
-                    // by providing an `onChunk` callback to handle streaming data.
                     await generateConsultationSynthesis(patient, consultation, (chunk: string) => {
                         fullReport += chunk;
                         setReport(fullReport); // This will show the streaming text
                     });
 
-                    // The service now throws an error for connection issues.
                     if (fullReport.startsWith("Impossible de contacter")) {
                         throw new Error(fullReport);
                     }
@@ -55,21 +55,66 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
     const handleDownloadPdf = () => {
         const element = printableAreaRef.current;
         if (!element || !patient || !consultation) return;
-
+    
         setIsDownloading(true);
-        const pdf = new jsPDF('p', 'pt', 'a4');
-        pdf.html(element, {
-            callback: (doc) => {
-                const date = new Date(consultation.consultationDate).toISOString().slice(0, 10);
-                doc.save(`rapport-${patient.lastName}-${date}.pdf`);
-                setIsDownloading(false);
-            },
-            x: 20,
-            y: 20,
-            width: 555,
-            windowWidth: element.scrollWidth,
-            html2canvas: { scale: 0.75 },
-            margin: [20, 0, 20, 0]
+    
+        // Temporarily set a fixed width on the element to ensure correct wrapping for html2canvas
+        const originalWidth = element.style.width;
+        element.style.width = '800px';
+    
+        html2canvas(element, { 
+            scale: 2, 
+            useCORS: true, 
+            windowWidth: element.scrollWidth
+        })
+        .then((canvas) => {
+            element.style.width = originalWidth;
+    
+            const pdf = new jsPDF('p', 'pt', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const margin = 42.5; // 1.5cm in points
+    
+            const imgWidth = pdfWidth - margin * 2;
+            const imgHeight = canvas.height * imgWidth / canvas.width;
+            const pageContentHeight = pdfHeight - margin * 2;
+    
+            let heightLeft = imgHeight;
+            let position = 0;
+    
+            pdf.addImage(canvas, 'PNG', margin, margin, imgWidth, imgHeight);
+            heightLeft -= pageContentHeight;
+    
+            while (heightLeft > 0) {
+                position -= pageContentHeight;
+                pdf.addPage();
+                pdf.addImage(canvas, 'PNG', margin, position, imgWidth, imgHeight);
+                heightLeft -= pageContentHeight;
+            }
+    
+            const pageCount = pdf.internal.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                pdf.setPage(i);
+                pdf.setFontSize(9);
+                pdf.setTextColor(128);
+                pdf.text(
+                    `Page ${i} / ${pageCount}`,
+                    pdf.internal.pageSize.getWidth() / 2,
+                    pdf.internal.pageSize.getHeight() - 20,
+                    { align: 'center' }
+                );
+            }
+    
+            const date = new Date(consultation.consultationDate).toISOString().slice(0, 10);
+            pdf.save(`rapport-${patient.lastName}-${date}.pdf`);
+        })
+        .catch(err => {
+            element.style.width = originalWidth;
+            console.error("Erreur de génération PDF : ", err);
+            alert("Une erreur est survenue lors de la génération du PDF.");
+        })
+        .finally(() => {
+            setIsDownloading(false);
         });
     };
 
