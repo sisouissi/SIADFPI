@@ -26,16 +26,22 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
             const generateReport = async () => {
                 setIsLoading(true);
                 setError(null);
-                setReport(null);
-                // FIX: Update to handle streaming response from generateConsultationSynthesis.
-                let fullReport = "";
+                setReport(''); // Use empty string to accumulate chunks
+                let fullReport = '';
                 try {
+                    // FIX: Adapt the call to the streaming function `generateConsultationSynthesis`
+                    // by providing an `onChunk` callback to handle streaming data.
                     await generateConsultationSynthesis(patient, consultation, (chunk: string) => {
                         fullReport += chunk;
-                        // Update report as it streams
-                        const cleanedResult = fullReport.includes('---') ? fullReport.split('---').slice(1).join('---').trim() : fullReport;
-                        setReport(cleanedResult);
+                        setReport(fullReport); // This will show the streaming text
                     });
+
+                    // The service now throws an error for connection issues.
+                    if (fullReport.startsWith("Impossible de contacter")) {
+                        throw new Error(fullReport);
+                    }
+                    const cleanedResult = fullReport.includes('---') ? fullReport.split('---').slice(1).join('---').trim() : fullReport;
+                    setReport(cleanedResult);
                 } catch (err) {
                     setError(err instanceof Error ? err.message : 'Une erreur inconnue est survenue.');
                 } finally {
@@ -105,21 +111,23 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
                         <div className="ai-report-content" dangerouslySetInnerHTML={{ __html: parseMarkdown(report) }}>
                         </div>
                     </div>
-                    <div className="mt-6 pt-6 border-t border-slate-200 flex justify-end gap-3">
-                        <button
-                            onClick={handleDownloadPdf}
-                            disabled={isDownloading}
-                            className="px-6 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
-                        >
-                            {isDownloading ? 'Téléchargement...' : 'Télécharger en PDF'}
-                        </button>
-                        <button
-                            onClick={handleSave}
-                            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-green-300 focus:ring-opacity-50"
-                        >
-                            Enregistrer dans l'observation
-                        </button>
-                    </div>
+                    {!isLoading && (
+                        <div className="mt-6 pt-6 border-t border-slate-200 flex justify-end gap-3">
+                            <button
+                                onClick={handleDownloadPdf}
+                                disabled={isDownloading}
+                                className="px-6 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
+                            >
+                                {isDownloading ? 'Téléchargement...' : 'Télécharger en PDF'}
+                            </button>
+                            <button
+                                onClick={handleSave}
+                                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-green-300 focus:ring-opacity-50"
+                            >
+                                Enregistrer dans l'observation
+                            </button>
+                        </div>
+                    )}
                 </>
             )}
         </Modal>
