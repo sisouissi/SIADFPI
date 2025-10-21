@@ -1,40 +1,48 @@
-import { GoogleGenAI } from "@google/genai";
 import { DMDFormData, Patient, Consultation } from '../types';
 
-// Initialize Gemini
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-const model = 'gemini-2.5-flash';
-
-// Common error handler
-const handleApiError = (error: unknown, context: string): string => {
-    console.error(`Erreur de connexion à l'API Gemini (${context}):`, error);
-    const message = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
-    if (message.includes('API key not valid')) {
-        return "La clé API n'est pas valide. Veuillez vérifier la configuration.";
+// Common error handler for fetch calls
+const handleApiError = async (response: Response): Promise<string> => {
+    try {
+        const errorBody = await response.json();
+        const errorMessage = errorBody.details 
+            ? `${errorBody.error}: ${errorBody.details}` 
+            : errorBody.error;
+        console.error("Erreur de l'API:", errorMessage);
+        return errorMessage || `Une erreur serveur est survenue (status: ${response.status}).`;
+    } catch (e) {
+        console.error("Erreur lors du parsing de la réponse d'erreur API:", e);
+        return `Une erreur serveur est survenue (status: ${response.status}) et la réponse n'a pas pu être lue.`;
     }
-    return `Impossible de contacter le service de l'IA (${message}). Vérifiez votre connexion internet ou réessayez plus tard.`;
 };
 
 /**
- * Answers a user's question based on the FPI guide content using the API.
+ * Answers a user's question by calling the backend API.
  */
 export const getAnswerFromGuide = async (question: string): Promise<string> => {
-  const system_prompt = `Tu es un assistant expert spécialisé dans la Fibrose Pulmonaire Idiopathique (FPI). Ta base de connaissances inclut le guide Tunisien de 2022, les recommandations de la Société de Pneumologie de Langue Française (SPLF), et les directives ERS/EULAR jusqu'à 2025. Réponds à la question de l'utilisateur de manière précise, professionnelle et complète en te basant sur cet ensemble de références. Structure ta réponse clairement. Si possible, mentionne la source de l'information (ex: "Selon la SPLF...").`;
-  const user_prompt = `Question: "${question}"`;
-
   try {
-    const response = await ai.models.generateContent({
-        model,
-        contents: user_prompt,
-        config: {
-            systemInstruction: system_prompt
-        }
+    const response = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'getAnswerFromGuide',
+        data: { question }
+      })
     });
-    return response.text;
+
+    if (!response.ok) {
+      return await handleApiError(response);
+    }
+
+    const { result } = await response.json();
+    return result;
+
   } catch (error) {
-    return handleApiError(error, 'getAnswer');
+    console.error("Erreur de connexion à l'API backend:", error);
+    return "Impossible de contacter le service de l'IA via le serveur. Vérifiez votre connexion internet ou réessayez plus tard.";
   }
 };
+
+// --- Helper functions for formatting data (unchanged) ---
 
 const formatValue = (value: any): string => {
     if (value === null || value === undefined || value === '') {
@@ -169,40 +177,28 @@ const formatDataForPrompt = (data: DMDFormData): string => {
     return result;
 }
 
+
 export const generateConsultationSynthesis = async (patient: Patient, consultation: Consultation): Promise<string> => {
     const formattedData = formatDataForPrompt(consultation.formData);
-    const system_prompt = `Tu es un pneumologue expert spécialisé dans les pneumopathies interstitielles diffuses (PID), agissant dans le cadre d'une discussion multidisciplinaire (DMD). Ton raisonnement doit s'appuyer sur les recommandations les plus récentes et pertinentes (guide SPLF 2022 FPI, ERS/EULAR CTD-ILD). Rédige un rapport structuré, professionnel et concis.`;
-    const user_prompt = `Analyse les données de la consultation du **${new Date(consultation.consultationDate).toLocaleDateString('fr-FR')}** pour le patient **${patient.firstName} ${patient.lastName}**.
-
-Voici les données du dossier de consultation :
----
-${formattedData}
----
-
-En te basant UNIQUEMENT sur ces informations mais en appliquant une démarche clinique rigoureuse, rédige un rapport argumenté en utilisant impérativement le format Markdown avec les sections suivantes :
-
-## 1. Synthèse Clinique
-Résume les points clés de l'anamnèse, de l'examen clinique et des expositions.
-## 2. Analyse des Examens Complémentaires
-Interprète les résultats de la TDM-HR (en concluant sur un pattern PIC/UIP), des EFR et des autres examens.
-## 3. Hypothèses Diagnostiques
-Liste les diagnostics les plus probables par ordre de priorité.
-## 4. Discussion et Conclusion de la DMD
-Propose un diagnostic de travail, évalue le niveau de certitude, et discute de la nécessité d'examens supplémentaires (LBA, biopsie).
-## 5. Plan de Prise en Charge Proposé
-Suggère les prochaines étapes (thérapeutiques, surveillance, etc.).`;
 
     try {
-        const response = await ai.models.generateContent({
-            model,
-            contents: user_prompt,
-            config: {
-                systemInstruction: system_prompt
-            }
+        const response = await fetch('/api/gemini', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'generateConsultationSynthesis',
+                data: { patient, formattedData }
+            })
         });
-        return response.text;
+
+        if (!response.ok) {
+            return await handleApiError(response);
+        }
+        const { result } = await response.json();
+        return result;
     } catch (error) {
-        return handleApiError(error, 'consultationSynthesis');
+        console.error("Erreur de connexion à l'API backend pour la synthèse:", error);
+        return "Impossible de contacter le service de l'IA via le serveur. Vérifiez votre connexion internet ou réessayez plus tard.";
     }
 };
 
@@ -227,7 +223,6 @@ const formatDataForSummaryPrompt = (data: DMDFormData): string => {
     return keyPoints.map(p => `- ${p}`).join('\n');
 };
 
-
 export const generateGeneralSynthesis = async (patient: Patient, consultations: Consultation[]): Promise<string> => {
     const sortedConsultations = [...consultations].sort((a, b) => 
         new Date(a.consultationDate).getTime() - new Date(b.consultationDate).getTime()
@@ -236,53 +231,28 @@ export const generateGeneralSynthesis = async (patient: Patient, consultations: 
     const historyPrompt = sortedConsultations.map((c, i) => {
         const dateStr = new Date(c.consultationDate).toLocaleDateString('fr-FR');
         if (i === sortedConsultations.length - 1 || sortedConsultations.length <= 2) {
-            return `
-CONSULTATION ${i + 1} - ${dateStr} (DÉTAILS COMPLETS):
-${formatDataForPrompt(c.formData)}
----`;
+            return `\nCONSULTATION ${i + 1} - ${dateStr} (DÉTAILS COMPLETS):\n${formatDataForPrompt(c.formData)}\n---`;
         } else {
-            return `
-CONSULTATION ${i + 1} - ${dateStr} (RÉSUMÉ CLÉ):
-${formatDataForSummaryPrompt(c.formData)}
----`;
+            return `\nCONSULTATION ${i + 1} - ${dateStr} (RÉSUMÉ CLÉ):\n${formatDataForSummaryPrompt(c.formData)}\n---`;
         }
     }).join('\n');
 
-    const system_prompt = `Tu es un pneumologue expert qui rédige une synthèse de suivi pour un dossier patient. Sois structuré, professionnel et concis. Analyse l'historique complet des consultations du patient **${patient.firstName} ${patient.lastName}**. **IMPORTANT:** L'historique fourni contient des résumés pour les consultations plus anciennes ("RÉSUMÉ CLÉ") et les détails complets pour la ou les plus récentes ("DÉTAILS COMPLETS"). Ta synthèse doit intégrer toutes ces informations pour donner une vue d'ensemble de l'évolution.`;
-    const user_prompt = `Voici les données du dossier :
----
-**PATIENT:**
-- Nom: ${patient.lastName}, ${patient.firstName}
-- Date de Naissance: ${new Date(patient.dateOfBirth).toLocaleDateString('fr-FR')}
-
-**HISTORIQUE DES CONSULTATIONS:**
-${historyPrompt}
----
-
-Rédige un rapport de synthèse concis mais complet, en utilisant le format Markdown avec les sections suivantes :
-
-## 1. Résumé du Cas
-Présente brièvement le patient, son diagnostic initial et le contexte du suivi.
-## 2. Évolution Clinique et Symptomatique
-Décris l'évolution des symptômes (dyspnée, toux) au fil des consultations en te basant sur les informations fournies.
-## 3. Évolution Fonctionnelle et Radiologique
-Analyse la trajectoire des EFR (CVF, DLCO) et des données du TM6 en te basant sur les points clés des résumés et les détails de la dernière consultation.
-## 4. Tolérance et Efficacité des Traitements
-Fais le point sur les traitements en cours, leur tolérance et leur impact sur la progression de la maladie.
-## 5. Conclusion et Plan de Suivi
-Conclus sur le statut actuel de la maladie (stable, en progression) et propose un plan pour la suite (ajustement thérapeutique, examens à prévoir, etc.).`;
-
     try {
-        const response = await ai.models.generateContent({
-            model,
-            contents: user_prompt,
-            config: {
-                systemInstruction: system_prompt
-            }
+        const response = await fetch('/api/gemini', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'generateGeneralSynthesis',
+                data: { patient, historyPrompt }
+            })
         });
-        return response.text;
+
+        if (!response.ok) { return await handleApiError(response); }
+        const { result } = await response.json();
+        return result;
     } catch (error) {
-        return handleApiError(error, 'generalSynthesis');
+        console.error("Erreur de connexion à l'API backend pour la synthèse générale:", error);
+        return "Impossible de contacter le service de l'IA via le serveur. Vérifiez votre connexion internet ou réessayez plus tard.";
     }
 };
 
@@ -292,32 +262,39 @@ export const generateExamSuggestions = async (
     onChunk: (chunk: string) => void
 ): Promise<void> => {
     const formattedData = formatDataForPrompt(formData);
-    const system_prompt = `Tu es un pneumologue expert en PID. Ton analyse doit être concise et justifiée. Ne suggère que ce qui est cliniquement pertinent. Si le dossier semble complet, indique-le simplement. Propose une liste d'examens complémentaires sous forme de liste à puces Markdown. Pour chaque suggestion, fournis une brève justification clinique (1-2 lignes max). Ne fournis que la liste Markdown, sans introduction ni conclusion. Exemple de format : * **Examen Suggéré 1:** Justification brève.`;
-    const user_prompt = `En te basant sur le dossier patient incomplet ci-dessous, identifie les 3 examens complémentaires les plus pertinents à suggérer pour affiner le diagnostic ou le bilan pré-thérapeutique.
-
-DOSSIER PATIENT:
----
-**Patient:** ${patient.lastName} ${patient.firstName}, né(e) le ${patient.dateOfBirth}
-**Données actuelles:**
-${formattedData}
----`;
-
     try {
-        const responseStream = await ai.models.generateContentStream({
-            model,
-            contents: user_prompt,
-            config: {
-                systemInstruction: system_prompt
-            }
+        const response = await fetch('/api/gemini', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'generateExamSuggestions',
+                data: { patient, formattedData }
+            })
         });
 
-        for await (const chunk of responseStream) {
-            onChunk(chunk.text);
+        if (!response.ok) {
+            const errorMessage = await handleApiError(response);
+            throw new Error(errorMessage);
         }
+        
+        if (!response.body) { throw new Error("La réponse de l'API est vide."); }
 
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) {
+                const chunk = decoder.decode(value, { stream: true });
+                onChunk(chunk);
+            }
+        }
     } catch (error) {
         console.error("Erreur de connexion à l'API pour les suggestions:", error);
-        const errorMessage = handleApiError(error, 'examSuggestions');
-        throw new Error(errorMessage);
+        if (error instanceof Error) {
+            throw error;
+        }
+        throw new Error("Impossible de contacter le service de l'IA. Vérifiez votre connexion internet ou réessayez plus tard.");
     }
 };
