@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Consultation, DMDFormData, Patient, TestResult } from '../types';
 import { parseMarkdown } from '../services/markdownParser';
 import CompletenessDashboard from './CompletenessDashboard';
@@ -281,6 +281,7 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
     const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
     const [generatedSummary, setGeneratedSummary] = useState('');
     const [isSummaryReportModalOpen, setIsSummaryReportModalOpen] = useState(false);
+    const reportToPrintRef = useRef<HTMLDivElement>(null);
 
 
     // If initialConsultation changes, update the form data
@@ -519,11 +520,17 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
         try {
             if (!patient) throw new Error("Données patient non disponibles.");
             
-            const summary = await generateConsultationSynthesis(patient, { ...initialConsultation, formData });
+            let summary = "";
+            await generateConsultationSynthesis(
+                patient, 
+                { ...initialConsultation, formData },
+                (chunk) => { summary += chunk; }
+            );
             
             const aiMarker = '--- RAPPORT IA ---';
             const userSummaryPart = formData.synthese.summary.split(aiMarker)[0].trim();
-            const newFullSummary = `${userSummaryPart}\n\n${aiMarker}\n${summary}`.trim();
+            const cleanedSummary = summary.includes('---') ? summary.split('---').slice(1).join('---').trim() : summary;
+            const newFullSummary = `${userSummaryPart}\n\n${aiMarker}\n${cleanedSummary}`.trim();
             
             setFormData(prev => ({
                 ...prev,
@@ -533,7 +540,7 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
                 }
             }));
             
-            setGeneratedSummary(summary);
+            setGeneratedSummary(cleanedSummary);
             setIsConfirmationModalOpen(true);
 
         } catch (error) {
@@ -546,9 +553,45 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
     const handleConfirmAndSave = () => {
         onSave({
             ...initialConsultation,
-            formData: formData, // formData is already updated in state
+            formData: formData,
         });
         setIsConfirmationModalOpen(false);
+    };
+
+    const handlePrintReport = () => {
+        const contentToPrint = reportToPrintRef.current?.innerHTML;
+        if (contentToPrint && patient) {
+            const printWindow = window.open('', '_blank', 'height=800,width=800');
+            if (printWindow) {
+                printWindow.document.write('<html><head><title>Rapport de Consultation</title>');
+                printWindow.document.write(`<style>
+                    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+                    body { font-family: 'Poppins', sans-serif; line-height: 1.6; color: #334155; margin: 2rem; }
+                    h1, h2, h3, h4 { color: #0F172A; }
+                    h1 { font-size: 1.5rem; }
+                    h2, h3, h4 {
+                        font-size: 1.25rem; font-weight: 700; color: #1e293b;
+                        border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem;
+                        margin-top: 1.5rem; margin-bottom: 1rem;
+                    }
+                    p { margin-bottom: 1rem; }
+                    ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+                    li { margin-bottom: 0.5rem; }
+                    @media print { body { -webkit-print-color-adjust: exact; } }
+                </style>`);
+                printWindow.document.write('</head><body>');
+                printWindow.document.write('<h1>Rapport de Consultation</h1>');
+                printWindow.document.write(`<p><b>Patient :</b> ${patient.firstName} ${patient.lastName.toUpperCase()}</p>`);
+                printWindow.document.write(`<p><b>Date :</b> ${new Date(initialConsultation.consultationDate).toLocaleDateString('fr-FR')}</p>`);
+                printWindow.document.write(`<p><b>Médecin Référent :</b> ${patient.referringDoctor}</p>`);
+                printWindow.document.write('<hr style="margin-top: 1rem; margin-bottom: 1rem; border: 0; border-top: 1px solid #e2e8f0;">');
+                printWindow.document.write(contentToPrint);
+                printWindow.document.write('</body></html>');
+                printWindow.document.close();
+                printWindow.focus();
+                setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
+            }
+        }
     };
 
     const baseTests = ['AAN', 'Facteur Rhumatoïde', 'Anti-CCP', 'ANCA', 'CPK'];
@@ -993,7 +1036,7 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
                 
                 {currentStep === 5 && (
                     <div>
-                        <SubHeader>Étape 6 : Examen Clinique & Fonctionnel</SubHeader>
+                        <SubHeader>Étape 6 : Examen Clinique & Paraclinique</SubHeader>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                              <div className="md:col-span-2 p-4 border border-slate-200 rounded-lg bg-slate-50/50">
                                  <h4 className="font-bold text-slate-700 mb-3">Examen Physique</h4>
@@ -1287,7 +1330,7 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
                                             <div className="mt-6">
                                                 <h4 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-3">Rapport de Synthèse IA (non-modifiable)</h4>
                                                 <div 
-                                                    className="p-4 bg-slate-50 border border-slate-200 rounded-lg prose prose-sm max-w-none"
+                                                    className="p-4 bg-slate-50 border border-slate-200 rounded-lg max-w-none ai-report-content"
                                                     dangerouslySetInnerHTML={{ __html: parseMarkdown(aiReport) }}
                                                 >
                                                 </div>
@@ -1297,7 +1340,7 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
                                             <div className="mt-6">
                                                 <h4 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-3">Suggestions d'examens complémentaires (IA)</h4>
                                                 <div 
-                                                    className="p-4 bg-slate-50 border border-slate-200 rounded-lg prose prose-sm max-w-none"
+                                                    className="p-4 bg-slate-50 border border-slate-200 rounded-lg max-w-none ai-report-content"
                                                     dangerouslySetInnerHTML={{ __html: parseMarkdown(formData.synthese.aiSuggestions) }}
                                                 >
                                                 </div>
@@ -1369,11 +1412,36 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
                 title="Consultation Enregistrée avec Succès"
                 closeButtonText="Terminer"
             >
-                <p className="mb-4">La consultation a été enregistrée. Voici la synthèse générée par l'IA qui a été ajoutée à l'observation :</p>
-                <div 
-                    className="p-4 bg-slate-50 border border-slate-200 rounded-lg prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: parseMarkdown(generatedSummary) }}
-                >
+                <div ref={reportToPrintRef}>
+                    <p className="mb-4">La consultation a été enregistrée. Voici la synthèse générée par l'IA qui a été ajoutée à l'observation :</p>
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg max-h-[50vh] overflow-y-auto">
+                        {generatedSummary && (
+                            <>
+                                <h4 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-3">Synthèse de la Consultation</h4>
+                                <div 
+                                    className="ai-report-content"
+                                    dangerouslySetInnerHTML={{ __html: parseMarkdown(generatedSummary) }}
+                                ></div>
+                            </>
+                        )}
+                        {formData.synthese.aiSuggestions && (
+                            <div className="mt-6">
+                                <h4 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-3">Suggestions d'examens complémentaires</h4>
+                                <div 
+                                    className="ai-report-content"
+                                    dangerouslySetInnerHTML={{ __html: parseMarkdown(formData.synthese.aiSuggestions) }}
+                                ></div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+                <div className="mt-6 pt-4 border-t border-slate-200 flex justify-end">
+                    <button
+                        onClick={handlePrintReport}
+                        className="px-6 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+                    >
+                        Imprimer le rapport
+                    </button>
                 </div>
             </Modal>
 
@@ -1386,7 +1454,7 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
                     <div>
                         <h4 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-3">Synthèse de la Consultation</h4>
                         <div 
-                            className="p-4 bg-slate-50 border border-slate-200 rounded-lg prose prose-sm max-w-none"
+                            className="p-4 bg-slate-50 border border-slate-200 rounded-lg max-w-none ai-report-content"
                             dangerouslySetInnerHTML={{ __html: parseMarkdown(aiReport.trim()) }}
                         >
                         </div>
@@ -1396,7 +1464,7 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
                     <div className="mt-6">
                         <h4 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-3">Suggestions d'examens complémentaires</h4>
                         <div 
-                            className="p-4 bg-slate-50 border border-slate-200 rounded-lg prose prose-sm max-w-none"
+                            className="p-4 bg-slate-50 border border-slate-200 rounded-lg max-w-none ai-report-content"
                             dangerouslySetInnerHTML={{ __html: parseMarkdown(formData.synthese.aiSuggestions) }}
                         >
                         </div>

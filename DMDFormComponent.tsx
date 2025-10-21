@@ -508,6 +508,7 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
         return missing;
     };
 
+    // FIX: Refactor handleSaveClick to use the streaming version of generateConsultationSynthesis.
     const handleSaveClick = async () => {
         const missingFields = validateForm();
         if (missingFields.length > 0) {
@@ -520,11 +521,19 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
         try {
             if (!patient) throw new Error("Données patient non disponibles.");
             
-            const summary = await generateConsultationSynthesis(patient, { ...initialConsultation, formData });
+            let summary = "";
+            await generateConsultationSynthesis(
+                patient, 
+                { ...initialConsultation, formData },
+                (chunk) => { summary += chunk; }
+            );
             
             const aiMarker = '--- RAPPORT IA ---';
             const userSummaryPart = formData.synthese.summary.split(aiMarker)[0].trim();
-            const newFullSummary = `${userSummaryPart}\n\n${aiMarker}\n${summary}`.trim();
+
+            const cleanedSummary = summary.includes('---') ? summary.split('---').slice(1).join('---').trim() : summary;
+
+            const newFullSummary = `${userSummaryPart}\n\n${aiMarker}\n${cleanedSummary}`.trim();
             
             setFormData(prev => ({
                 ...prev,
@@ -534,7 +543,7 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
                 }
             }));
             
-            setGeneratedSummary(summary);
+            setGeneratedSummary(cleanedSummary);
             setIsConfirmationModalOpen(true);
 
         } catch (error) {
@@ -547,7 +556,7 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
     const handleConfirmAndSave = () => {
         onSave({
             ...initialConsultation,
-            formData: formData, // formData is already updated in state
+            formData: formData,
         });
         setIsConfirmationModalOpen(false);
     };

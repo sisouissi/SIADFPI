@@ -23,33 +23,41 @@ const CustomizedLabel: React.FC<any> = (props) => {
 };
 
 const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, onClose, patient, consultations }) => {
-    const [report, setReport] = useState<string | null>(null);
+    // FIX: Initialize report as an empty string to handle streaming content.
+    const [report, setReport] = useState<string>("");
     const [isLoading, setIsLoading] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
     const [isSharing, setIsSharing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const printableAreaRef = useRef<HTMLDivElement>(null);
+    // FIX: Add a ref to accumulate the full report from stream chunks.
+    const fullReportRef = useRef("");
 
+    // FIX: Refactor useEffect to handle the streaming response from generateGeneralSynthesis.
     useEffect(() => {
         if (isOpen && patient && consultations.length > 0) {
-            const generateReport = async () => {
+            const generateReportStream = async () => {
                 setIsLoading(true);
                 setError(null);
-                setReport(null);
+                setReport("");
+                fullReportRef.current = "";
+
                 try {
-                    const result = await generateGeneralSynthesis(patient, consultations);
-                     if (result.startsWith("Impossible de contacter")) {
-                        throw new Error(result);
-                    }
-                    const cleanedResult = result.includes('---') ? result.split('---').slice(1).join('---').trim() : result;
-                    setReport(cleanedResult);
+                    await generateGeneralSynthesis(
+                        patient,
+                        consultations,
+                        (chunk: string) => {
+                            fullReportRef.current += chunk;
+                            setReport(fullReportRef.current);
+                        }
+                    );
                 } catch (err) {
                     setError(err instanceof Error ? err.message : 'Une erreur inconnue est survenue.');
                 } finally {
                     setIsLoading(false);
                 }
             };
-            generateReport();
+            generateReportStream();
         }
     }, [isOpen, patient, consultations]);
     
@@ -165,7 +173,7 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
             onClose={onClose}
             title="Synthèse Générale du Dossier Patient"
         >
-            {isLoading && (
+            {(isLoading && !report) && (
                 <div className="flex flex-col items-center justify-center min-h-[300px]">
                     <svg className="animate-spin h-10 w-10 text-purple-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -189,7 +197,7 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
                             <p className="text-sm text-slate-500">Date de génération : {new Date().toLocaleDateString('fr-FR')}</p>
                         </div>
 
-                        <div className="prose prose-sm max-w-none text-slate-700" dangerouslySetInnerHTML={{ __html: parseMarkdown(report) }}></div>
+                        <div className="ai-report-content" dangerouslySetInnerHTML={{ __html: parseMarkdown(report) }}></div>
                         
                         {chartData.length > 0 && (
                             <div className="mt-6">
@@ -217,31 +225,33 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
                             </div>
                         )}
                     </div>
-                    <div className="mt-6 pt-6 border-t border-slate-200 flex flex-wrap justify-end gap-3">
-                        <button
-                            onClick={handlePrint}
-                            className="px-4 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
-                        >
-                            Imprimer
-                        </button>
-                        <button
-                            onClick={handleDownloadPdf}
-                            disabled={isDownloading}
-                            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-br from-sky-500 to-accent-blue text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-sky-300 focus:ring-opacity-50 disabled:opacity-50"
-                        >
-                            {isDownloading ? 'Téléchargement...' : 'Télécharger (PDF)'}
-                        </button>
-                        {navigator.share && (
+                    {!isLoading && (
+                        <div className="mt-6 pt-6 border-t border-slate-200 flex flex-wrap justify-end gap-3">
                             <button
-                                onClick={handleShare}
-                                disabled={isSharing}
-                                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-br from-purple-500 to-violet-500 text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-purple-300 focus:ring-opacity-50 disabled:opacity-50"
+                                onClick={handlePrint}
+                                className="px-4 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
                             >
-                                <PaperAirplaneIcon className="w-5 h-5" />
-                                {isSharing ? 'Partage...' : 'Partager'}
+                                Imprimer
                             </button>
-                        )}
-                    </div>
+                            <button
+                                onClick={handleDownloadPdf}
+                                disabled={isDownloading}
+                                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-br from-sky-500 to-accent-blue text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-sky-300 focus:ring-opacity-50 disabled:opacity-50"
+                            >
+                                {isDownloading ? 'Téléchargement...' : 'Télécharger (PDF)'}
+                            </button>
+                            {navigator.share && (
+                                <button
+                                    onClick={handleShare}
+                                    disabled={isSharing}
+                                    className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-br from-purple-500 to-violet-500 text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-purple-300 focus:ring-opacity-50 disabled:opacity-50"
+                                >
+                                    <PaperAirplaneIcon className="w-5 h-5" />
+                                    {isSharing ? 'Partage...' : 'Partager'}
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </>
             )}
         </Modal>

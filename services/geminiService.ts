@@ -189,29 +189,53 @@ const formatDataForPrompt = (data: DMDFormData): string => {
     return result;
 }
 
-
-export const generateConsultationSynthesis = async (patient: Patient, consultation: Consultation): Promise<string> => {
-    const formattedData = formatDataForPrompt(consultation.formData);
-
+const handleStreamingApiCall = async (action: string, data: object, onChunk: (chunk: string) => void) => {
     try {
         const response = await fetch('/api/gemini', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'generateConsultationSynthesis',
-                data: { patient, formattedData }
-            })
+            body: JSON.stringify({ action, data })
         });
 
         if (!response.ok) {
-            return await handleApiError(response);
+            const errorMessage = await handleApiError(response);
+            throw new Error(errorMessage);
         }
-        const { result } = await response.json();
-        return result;
+        
+        if (!response.body) { throw new Error("La réponse de l'API est vide."); }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) {
+                const chunk = decoder.decode(value, { stream: true });
+                onChunk(chunk);
+            }
+        }
     } catch (error) {
-        console.error("Erreur de connexion à l'API backend pour la synthèse:", error);
-        return "Impossible de contacter le service de l'IA via le serveur. Vérifiez votre connexion internet ou réessayez plus tard.";
+        console.error(`Erreur de connexion à l'API pour l'action ${action}:`, error);
+        if (error instanceof Error) {
+            throw error;
+        }
+        throw new Error("Impossible de contacter le service de l'IA. Vérifiez votre connexion internet ou réessayez plus tard.");
     }
+};
+
+export const generateConsultationSynthesis = async (
+    patient: Patient,
+    consultation: Consultation,
+    onChunk: (chunk: string) => void
+): Promise<void> => {
+    const formattedData = formatDataForPrompt(consultation.formData);
+    const apiData = { 
+        patient, 
+        consultationDate: consultation.consultationDate, 
+        formattedData 
+    };
+    await handleStreamingApiCall('generateConsultationSynthesis', apiData, onChunk);
 };
 
 const formatDataForSummaryPrompt = (data: DMDFormData): string => {
@@ -235,7 +259,11 @@ const formatDataForSummaryPrompt = (data: DMDFormData): string => {
     return keyPoints.map(p => `- ${p}`).join('\n');
 };
 
-export const generateGeneralSynthesis = async (patient: Patient, consultations: Consultation[]): Promise<string> => {
+export const generateGeneralSynthesis = async (
+    patient: Patient,
+    consultations: Consultation[],
+    onChunk: (chunk: string) => void
+): Promise<void> => {
     const sortedConsultations = [...consultations].sort((a, b) => 
         new Date(a.consultationDate).getTime() - new Date(b.consultationDate).getTime()
     );
@@ -249,23 +277,8 @@ export const generateGeneralSynthesis = async (patient: Patient, consultations: 
         }
     }).join('\n');
 
-    try {
-        const response = await fetch('/api/gemini', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'generateGeneralSynthesis',
-                data: { patient, historyPrompt }
-            })
-        });
-
-        if (!response.ok) { return await handleApiError(response); }
-        const { result } = await response.json();
-        return result;
-    } catch (error) {
-        console.error("Erreur de connexion à l'API backend pour la synthèse générale:", error);
-        return "Impossible de contacter le service de l'IA via le serveur. Vérifiez votre connexion internet ou réessayez plus tard.";
-    }
+    const apiData = { patient, historyPrompt };
+    await handleStreamingApiCall('generateGeneralSynthesis', apiData, onChunk);
 };
 
 export const generateExamSuggestions = async (
@@ -274,39 +287,6 @@ export const generateExamSuggestions = async (
     onChunk: (chunk: string) => void
 ): Promise<void> => {
     const formattedData = formatDataForPrompt(formData);
-    try {
-        const response = await fetch('/api/gemini', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'generateExamSuggestions',
-                data: { patient, formattedData }
-            })
-        });
-
-        if (!response.ok) {
-            const errorMessage = await handleApiError(response);
-            throw new Error(errorMessage);
-        }
-        
-        if (!response.body) { throw new Error("La réponse de l'API est vide."); }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            if (value) {
-                const chunk = decoder.decode(value, { stream: true });
-                onChunk(chunk);
-            }
-        }
-    } catch (error) {
-        console.error("Erreur de connexion à l'API pour les suggestions:", error);
-        if (error instanceof Error) {
-            throw error;
-        }
-        throw new Error("Impossible de contacter le service de l'IA. Vérifiez votre connexion internet ou réessayez plus tard.");
-    }
+    const apiData = { patient, formattedData };
+    await handleStreamingApiCall('generateExamSuggestions', apiData, onChunk);
 };
