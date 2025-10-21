@@ -2,17 +2,29 @@ import { DMDFormData, Patient, Consultation } from '../types';
 
 // Common error handler for fetch calls
 const handleApiError = async (response: Response): Promise<string> => {
+    const contentType = response.headers.get('content-type');
+    let errorMessage: string;
+
     try {
-        const errorBody = await response.json();
-        const errorMessage = errorBody.details 
-            ? `${errorBody.error}: ${errorBody.details}` 
-            : errorBody.error;
-        console.error("Erreur de l'API:", errorMessage);
-        return errorMessage || `Une erreur serveur est survenue (status: ${response.status}).`;
+        if (contentType && contentType.includes('application/json')) {
+            const errorBody = await response.json();
+            errorMessage = errorBody.details 
+                ? `${errorBody.error}: ${errorBody.details}` 
+                : errorBody.error || `Une erreur serveur est survenue (status: ${response.status}).`;
+        } else {
+            // Handle plain text errors, which can happen with server crashes or streaming errors
+            errorMessage = await response.text();
+            if (!errorMessage) {
+                 errorMessage = `Une erreur serveur est survenue (status: ${response.status}) sans message d'erreur.`;
+            }
+        }
     } catch (e) {
-        console.error("Erreur lors du parsing de la réponse d'erreur API:", e);
-        return `Une erreur serveur est survenue (status: ${response.status}) et la réponse n'a pas pu être lue.`;
+        console.error("Erreur lors de la lecture de la réponse d'erreur API:", e);
+        errorMessage = `Une erreur serveur est survenue (status: ${response.status}) et la réponse n'a pas pu être lue.`;
     }
+    
+    console.error("Erreur de l'API:", errorMessage);
+    return errorMessage;
 };
 
 /**
