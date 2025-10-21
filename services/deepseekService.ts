@@ -137,15 +137,25 @@ const formatDataForPrompt = (data: DMDFormData): string => {
         ...physicalExam.respiratory,
         ...physicalExam.cutaneous,
         ...physicalExam.articular,
-        ...physicalExam.vascular,
     ];
+    if (physicalExam.capillaroscopyPerformed) {
+        allPhysicalSigns.push(`Capillaroscopie: ${physicalExam.capillaroscopyResult}`);
+    }
+    if (physicalExam.salivaryGlandBiopsyPerformed) {
+        let biopsyText = `Biopsie glandes salivaires: ${physicalExam.salivaryGlandBiopsyResult}`;
+        if (physicalExam.salivaryGlandBiopsyResult === 'Autre') {
+            biopsyText += ` (${physicalExam.salivaryGlandBiopsyOther})`;
+        }
+        allPhysicalSigns.push(biopsyText);
+    }
     if (physicalExam.other) {
         allPhysicalSigns.push(physicalExam.other);
     }
     result += `- Signes à l'examen physique: ${formatValue(allPhysicalSigns)}\n`;
     result += `- TDM-HR - Distribution: ${formatValue(data.examens.radiology.distribution)}\n`;
     result += `- TDM-HR - Rayon de miel: ${formatValue(data.examens.radiology.honeycombing)}\n`;
-    result += `- TDM-HR - Autres signes de fibrose: ${formatValue(data.examens.radiology.otherFibrosisSigns)}\n`;
+    result += `- TDM-HR - Réticulations: ${formatValue(data.examens.radiology.reticulations)}\n`;
+    result += `- TDM-HR - Bronchectasies de traction: ${formatValue(data.examens.radiology.tractionBronchiectasis)}\n`;
     result += `- TDM-HR - Signes atypiques: ${formatValue(data.examens.radiology.atypicalFeatures)}\n`;
     result += `- EFR - CVF: ${formatValue(data.examens.efr.cvfPercent)}% (${formatValue(data.examens.efr.cvfValue)} L)\n`;
     result += `- EFR - DLCO: ${formatValue(data.examens.efr.dlcoPercent)}% (${formatValue(data.examens.efr.dlcoValue)} ml/min/mmHg)\n`;

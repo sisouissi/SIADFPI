@@ -43,13 +43,24 @@ export const INITIAL_DMD_FORM_DATA: DMDFormData = {
     },
   },
   examens: {
-    physicalExam: { respiratory: [], cutaneous: [], articular: [], vascular: [], other: '' },
+    physicalExam: { 
+        respiratory: [], 
+        cutaneous: [], 
+        articular: [], 
+        other: '',
+        capillaroscopyPerformed: false,
+        capillaroscopyResult: '',
+        salivaryGlandBiopsyPerformed: false,
+        salivaryGlandBiopsyResult: '',
+        salivaryGlandBiopsyOther: '',
+    },
     radiology: {
       hrctDate: '',
       hrctProtocol: '',
       distribution: [],
       honeycombing: '',
-      otherFibrosisSigns: [],
+      reticulations: '',
+      tractionBronchiectasis: '',
       atypicalFeatures: [],
       fibrosisExtent: '',
       radiologyReport: '',
@@ -70,7 +81,7 @@ export const INITIAL_DMD_FORM_DATA: DMDFormData = {
         lvef: '',
     }
   },
-  synthese: { lba: '', lbaCellularity: { total: '', lymphocytes: '', macrophages: '', neutrophiles: '', eosinophiles: '', lbaCd4Cd8Ratio: '' }, biopsy: '', biopsyResult: [''], rcpQuestion: [], summary: '' },
+  synthese: { lba: '', lbaCellularity: { total: '', lymphocytes: '', macrophages: '', neutrophiles: '', eosinophiles: '', lbaCd4Cd8Ratio: '' }, biopsy: '', biopsyResult: [''], rcpQuestion: [], summary: '', aiSuggestions: '', gapScore: '', gapStage: '' },
 };
 
 export class FpiDB extends Dexie {
@@ -310,11 +321,15 @@ const seedDatabase = async () => {
                 },
                 examens: { 
                     ...INITIAL_DMD_FORM_DATA.examens,
-                    physicalExam: { respiratory: ["Râles crépitants 'velcro'", "Hippocratisme digital"], cutaneous: [], articular: [], vascular: [], other: '' },
+                    physicalExam: { respiratory: ["Râles crépitants 'velcro'", "Hippocratisme digital"], cutaneous: [], articular: [], other: '', capillaroscopyPerformed: false, capillaroscopyResult: '', salivaryGlandBiopsyPerformed: false, salivaryGlandBiopsyResult: '', salivaryGlandBiopsyOther: '' },
                     radiology: {
                         hrctDate: '2023-01-10',
                         hrctProtocol: 'Approprié',
-                        distribution: ['Sous-pleurale et basale'], honeycombing: 'Oui', otherFibrosisSigns: ['Réticulations', 'Bronchectasies de traction'], atypicalFeatures: ['Aucun de ces aspects'],
+                        distribution: ['Sous-pleurale et basale'], 
+                        honeycombing: 'Oui', 
+                        reticulations: 'Oui',
+                        tractionBronchiectasis: 'Oui',
+                        atypicalFeatures: ['Aucun de ces aspects'],
                         fibrosisExtent: 20,
                         radiologyReport: "Aspect de pneumopathie interstitielle commune (PIC) typique. Rayon de miel prédominant aux bases et en sous-pleural, associé à des réticulations et des bronchectasies de traction. Pas de signe atypique. Lésions d'emphysème centrolobulaire aux sommets."
                     },
@@ -325,7 +340,10 @@ const seedDatabase = async () => {
                 synthese: { 
                     lba: 'Non', lbaCellularity: { total: '', lymphocytes: '', macrophages: '', neutrophiles: '', eosinophiles: '', lbaCd4Cd8Ratio: '' }, biopsy: 'Non', biopsyResult: [''], 
                     rcpQuestion: ['Confirmation diagnostique', 'Indication thérapeutique'], 
-                    summary: "Patient de 68 ans, ancien grand tabagique, présentant un tableau clinique et fonctionnel de PID. Le scanner est typique d'une PIC/UIP. Diagnostic de FPI retenu en RCP." 
+                    summary: "Patient de 68 ans, ancien grand tabagique, présentant un tableau clinique et fonctionnel de PID. Le scanner est typique d'une PIC/UIP. Diagnostic de FPI retenu en RCP.",
+                    aiSuggestions: '',
+                    gapScore: 4,
+                    gapStage: 'II',
                 },
             },
         });
@@ -374,11 +392,15 @@ const seedDatabase = async () => {
                 },
                 examens: { 
                     ...INITIAL_DMD_FORM_DATA.examens,
-                    physicalExam: { respiratory: ["Râles crépitants 'velcro'"], cutaneous: [], articular: [], vascular: [], other: '' },
+                    physicalExam: { respiratory: ["Râles crépitants 'velcro'"], cutaneous: [], articular: [], other: '', capillaroscopyPerformed: false, capillaroscopyResult: '', salivaryGlandBiopsyPerformed: false, salivaryGlandBiopsyResult: '', salivaryGlandBiopsyOther: '' },
                     radiology: {
                         hrctDate: '2023-03-01',
                         hrctProtocol: 'Approprié',
-                        distribution: ['Sous-pleurale et basale', 'Diffuse'], honeycombing: 'Non', otherFibrosisSigns: ['Réticulations'], atypicalFeatures: ['Verre dépoli prédominant'],
+                        distribution: ['Sous-pleurale et basale', 'Diffuse'], 
+                        honeycombing: 'Non', 
+                        reticulations: 'Oui',
+                        tractionBronchiectasis: 'Non',
+                        atypicalFeatures: ['Verre dépoli prédominant'],
                         fibrosisExtent: 15,
                         radiologyReport: "Anomalies interstitielles diffuses avec une prédominance de verre dépoli et de fines réticulations. Pas de rayon de miel. Distribution basale et sous-pleurale, mais également diffuse. Aspect le plus compatible avec une PINS."
                     },

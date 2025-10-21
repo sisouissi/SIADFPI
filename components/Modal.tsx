@@ -6,6 +6,7 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   maxWidth?: string;
+  closeButtonText?: string;
 }
 
 const XMarkIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
@@ -15,7 +16,7 @@ const XMarkIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) 
 );
 
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidth = 'max-w-4xl' }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidth = 'max-w-4xl', closeButtonText }) => {
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -68,7 +69,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidt
                 onClick={onClose}
                 className="px-6 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
             >
-                Fermer
+                {closeButtonText || 'Fermer'}
             </button>
         </div>
       </div>

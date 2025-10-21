@@ -144,11 +144,16 @@ ${formattedData}
 
 En te basant UNIQUEMENT sur ces informations mais en appliquant une démarche clinique rigoureuse, rédige un rapport argumenté en utilisant impérativement le format Markdown avec les sections suivantes :
 
-**1. Synthèse Clinique:** Résume les points clés de l'anamnèse, de l'examen clinique et des expositions.
-**2. Analyse des Examens Complémentaires:** Interprète les résultats de la TDM-HR (en concluant sur un pattern PIC/UIP), des EFR et des autres examens.
-**3. Hypothèses Diagnostiques:** Liste les diagnostics les plus probables par ordre de priorité.
-**4. Discussion et Conclusion de la DMD:** Propose un diagnostic de travail, évalue le niveau de certitude, et discute de la nécessité d'examens supplémentaires (LBA, biopsie).
-**5. Plan de Prise en Charge Proposé:** Suggère les prochaines étapes (thérapeutiques, surveillance, etc.).`;
+## 1. Synthèse Clinique
+Résume les points clés de l'anamnèse, de l'examen clinique et des expositions.
+## 2. Analyse des Examens Complémentaires
+Interprète les résultats de la TDM-HR (en concluant sur un pattern PIC/UIP), des EFR et des autres examens.
+## 3. Hypothèses Diagnostiques
+Liste les diagnostics les plus probables par ordre de priorité.
+## 4. Discussion et Conclusion de la DMD
+Propose un diagnostic de travail, évalue le niveau de certitude, et discute de la nécessité d'examens supplémentaires (LBA, biopsie).
+## 5. Plan de Prise en Charge Proposé
+Suggère les prochaines étapes (thérapeutiques, surveillance, etc.).`;
 
   const chatCompletion = await deepseek.chat.completions.create({
     model: 'deepseek-chat',
@@ -177,11 +182,16 @@ ${historyPrompt}
 
 Rédige un rapport de synthèse concis mais complet, en utilisant le format Markdown avec les sections suivantes :
 
-**1. Résumé du Cas:** Présente brièvement le patient, son diagnostic initial et le contexte du suivi.
-**2. Évolution Clinique et Symptomatique:** Décris l'évolution des symptômes (dyspnée, toux) au fil des consultations en te basant sur les informations fournies.
-**3. Évolution Fonctionnelle et Radiologique:** Analyse la trajectoire des EFR (CVF, DLCO) et des données du TM6 en te basant sur les points clés des résumés et les détails de la dernière consultation.
-**4. Tolérance et Efficacité des Traitements:** Fais le point sur les traitements en cours, leur tolérance et leur impact sur la progression de la maladie.
-**5. Conclusion et Plan de Suivi:** Conclus sur le statut actuel de la maladie (stable, en progression) et propose un plan pour la suite (ajustement thérapeutique, examens à prévoir, etc.).`;
+## 1. Résumé du Cas
+Présente brièvement le patient, son diagnostic initial et le contexte du suivi.
+## 2. Évolution Clinique et Symptomatique
+Décris l'évolution des symptômes (dyspnée, toux) au fil des consultations en te basant sur les informations fournies.
+## 3. Évolution Fonctionnelle et Radiologique
+Analyse la trajectoire des EFR (CVF, DLCO) et des données du TM6 en te basant sur les points clés des résumés et les détails de la dernière consultation.
+## 4. Tolérance et Efficacité des Traitements
+Fais le point sur les traitements en cours, leur tolérance et leur impact sur la progression de la maladie.
+## 5. Conclusion et Plan de Suivi
+Conclus sur le statut actuel de la maladie (stable, en progression) et propose un plan pour la suite (ajustement thérapeutique, examens à prévoir, etc.).`;
 
   const chatCompletion = await deepseek.chat.completions.create({
     model: 'deepseek-chat',

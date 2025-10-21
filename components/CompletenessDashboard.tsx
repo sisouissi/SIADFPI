@@ -2,15 +2,16 @@ import React, { useMemo, useState } from 'react';
 import { DMDFormData, Patient, Consultation } from '../types';
 import { checklistSections } from '../services/checklist';
 import { CheckCircleIcon, XCircleIcon, ExclamationTriangleIcon, SparklesIcon } from '../constants';
-import { generateExamSuggestions } from '../services/deepseekService';
+import { generateExamSuggestions } from '../services/geminiService';
 import { parseMarkdown } from '../services/markdownParser';
 
 interface CompletenessDashboardProps {
   formData: DMDFormData;
   patient: Patient | null;
+  onSuggestionsGenerated: (suggestions: string) => void;
 }
 
-const CompletenessDashboard: React.FC<CompletenessDashboardProps> = ({ formData, patient }) => {
+const CompletenessDashboard: React.FC<CompletenessDashboardProps> = ({ formData, patient, onSuggestionsGenerated }) => {
   const [suggestions, setSuggestions] = useState<string | null>(null);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
@@ -71,15 +72,17 @@ const CompletenessDashboard: React.FC<CompletenessDashboardProps> = ({ formData,
     if (!patient) return;
     setIsLoadingSuggestions(true);
     setSuggestionsError(null);
-    setSuggestions(""); // Start with an empty string to accumulate chunks
+    let fullSuggestions = "";
     try {
         await generateExamSuggestions(
             patient, 
             formData,
             (chunk: string) => {
-                setSuggestions(prev => (prev || "") + chunk);
+                fullSuggestions += chunk;
+                setSuggestions(fullSuggestions);
             }
         );
+        onSuggestionsGenerated(fullSuggestions);
     } catch (err) {
         setSuggestionsError(err instanceof Error ? err.message : 'Une erreur est survenue.');
         setSuggestions(null); // On error, reset to null to allow retrying
@@ -176,33 +179,39 @@ const CompletenessDashboard: React.FC<CompletenessDashboardProps> = ({ formData,
 
         <div className="mt-6 pt-4 border-t border-slate-300/50">
             <h3 className="font-bold text-slate-800 mb-2">Suggestions de l'IA</h3>
-            {(!isLoadingSuggestions && !suggestions) && (
+            
+            <div className="flex flex-col sm:flex-row gap-4">
                 <button
                     onClick={handleGetSuggestions}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 font-semibold rounded-lg border border-purple-200 hover:bg-purple-200 transition"
+                    disabled={isLoadingSuggestions}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 font-semibold rounded-lg border border-purple-200 hover:bg-purple-200 transition disabled:opacity-50"
                 >
                     <SparklesIcon className="w-5 h-5" />
-                    {suggestionsError ? 'Réessayer' : 'Suggérer des examens complémentaires'}
+                    {isLoadingSuggestions ? 'Analyse en cours...' : (suggestionsError ? 'Réessayer' : (suggestions !== null) ? 'Regénérer les suggestions' : 'Suggérer des examens')}
                 </button>
-            )}
+            </div>
+
+
             {isLoadingSuggestions && (
-                <div className="flex items-center gap-2 text-slate-500">
-                     <svg className="animate-spin h-5 w-5 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <div className="flex items-center gap-2 text-slate-500 mt-4">
+                    <svg className="animate-spin h-5 w-5 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                     <span>Analyse du dossier par l'IA...</span>
                 </div>
             )}
+
             {suggestionsError && !isLoadingSuggestions && (
-                 <div className="flex items-center p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg mb-2">
+                 <div className="flex items-center p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg mt-4">
                     <ExclamationTriangleIcon className="w-5 h-5 mr-2"/>
                     <p className="text-sm"><strong>Erreur :</strong> {suggestionsError}</p>
                 </div>
             )}
-            {suggestions !== null && (
+            
+            {suggestions !== null && suggestions.trim() !== "" && (
                 <div
-                    className="prose prose-sm max-w-none text-slate-600 bg-slate-50 p-4 rounded-md border border-slate-200"
+                    className="prose prose-sm max-w-none text-slate-600 bg-slate-50 p-4 rounded-md border border-slate-200 mt-4"
                     dangerouslySetInnerHTML={{ __html: parseMarkdown(suggestions) }}
                 />
             )}

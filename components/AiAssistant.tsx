@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { getAnswerFromGuide } from '../services/deepseekService';
+import { getAnswerFromGuide } from '../services/geminiService';
 import { parseMarkdown } from '../services/markdownParser';
 import { SparklesIcon, ExclamationTriangleIcon } from '../constants';
 

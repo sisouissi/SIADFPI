@@ -44,6 +44,8 @@ export const checklistSections: ChecklistSection[] = [
             { id: 'velcro_crackles', label: 'Crépitants "Velcro"', critical: true, checker: (formData) => formData.examens.physicalExam.respiratory.includes("Râles crépitants 'velcro'") },
             { id: 'digital_clubbing', label: 'Hippocratisme digital', critical: false, checker: (formData) => formData.examens.physicalExam.respiratory.includes("Hippocratisme digital") },
             { id: 'ctd_signs', label: 'Signes de connectivite', critical: false, checker: (formData) => isNonEmptyArray(formData.examens.physicalExam.cutaneous) || isNonEmptyArray(formData.examens.physicalExam.articular) },
+            { id: 'capillaroscopy', label: 'Capillaroscopie', critical: false, checker: (formData) => !formData.examens.physicalExam.capillaroscopyPerformed || isNonEmptyString(formData.examens.physicalExam.capillaroscopyResult) },
+            { id: 'salivary_biopsy', label: 'Biopsie Glandes Salivaires', critical: false, checker: (formData) => !formData.examens.physicalExam.salivaryGlandBiopsyPerformed || (isNonEmptyString(formData.examens.physicalExam.salivaryGlandBiopsyResult) && (formData.examens.physicalExam.salivaryGlandBiopsyResult !== 'Autre' || isNonEmptyString(formData.examens.physicalExam.salivaryGlandBiopsyOther))) }
         ]
     },
     {
@@ -55,8 +57,8 @@ export const checklistSections: ChecklistSection[] = [
             { id: 'hrct_protocol', label: 'Protocole HRCT', critical: true, checker: (formData) => isRadioSelected(formData.examens.radiology.hrctProtocol) },
             { id: 'distribution', label: 'Distribution des lésions', critical: true, checker: (formData) => isNonEmptyArray(formData.examens.radiology.distribution) },
             { id: 'honeycombing', label: 'Rayon de miel', critical: true, checker: (formData) => isNonEmptyString(formData.examens.radiology.honeycombing) },
-            { id: 'reticulations', label: 'Réticulations', critical: true, checker: (formData) => formData.examens.radiology.otherFibrosisSigns.includes('Réticulations') },
-            { id: 'traction_bronchiectasis', label: 'Bronchectasies de traction', critical: true, checker: (formData) => formData.examens.radiology.otherFibrosisSigns.includes('Bronchectasies de traction') },
+            { id: 'reticulations', label: 'Réticulations', critical: true, checker: (formData) => isNonEmptyString(formData.examens.radiology.reticulations) },
+            { id: 'traction_bronchiectasis', label: 'Bronchectasies de traction', critical: true, checker: (formData) => isNonEmptyString(formData.examens.radiology.tractionBronchiectasis) },
             { id: 'atypical_features', label: 'Signes atypiques', critical: false, checker: (formData) => isNonEmptyArray(formData.examens.radiology.atypicalFeatures) },
         ]
     },

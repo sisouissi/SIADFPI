@@ -151,7 +151,11 @@ export interface DMDFormData {
       respiratory: string[];
       cutaneous: string[];
       articular: string[];
-      vascular: string[];
+      capillaroscopyPerformed: boolean;
+      capillaroscopyResult: 'Normale' | 'Anormale' | '';
+      salivaryGlandBiopsyPerformed: boolean;
+      salivaryGlandBiopsyResult: 'Normale' | 'Sialadenitis' | 'Autre' | '';
+      salivaryGlandBiopsyOther: string;
       other: string;
     };
     radiology: {
@@ -159,7 +163,8 @@ export interface DMDFormData {
       hrctProtocol: 'Approprié' | 'Non approprié' | 'Inconnu' | '';
       distribution: string[];
       honeycombing: string;
-      otherFibrosisSigns: string[];
+      reticulations: 'Oui' | 'Non' | '';
+      tractionBronchiectasis: 'Oui' | 'Non' | '';
       atypicalFeatures: string[];
       fibrosisExtent: number | '';
       radiologyReport: string;
@@ -176,5 +181,8 @@ export interface DMDFormData {
     biopsyResult: string[];
     rcpQuestion: string[];
     summary: string;
+    aiSuggestions: string;
+    gapScore: number | '';
+    gapStage: 'I' | 'II' | 'III' | '';
   };
 }

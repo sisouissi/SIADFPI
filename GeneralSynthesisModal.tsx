@@ -189,7 +189,7 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
                             <p className="text-sm text-slate-500">Date de génération : {new Date().toLocaleDateString('fr-FR')}</p>
                         </div>
 
-                        <div className="prose prose-sm max-w-none text-slate-700" dangerouslySetInnerHTML={{ __html: parseMarkdown(report) }}></div>
+                        <div className="ai-report-content" dangerouslySetInnerHTML={{ __html: parseMarkdown(report) }}></div>
                         
                         {chartData.length > 0 && (
                             <div className="mt-6">
