@@ -103,7 +103,7 @@ const AiAssistant: React.FC = () => {
                 <div>
                    <h4 className="font-bold text-slate-800 mb-2">Réponse de l'assistant :</h4>
                    <div
-                    className="prose prose-sm max-w-none text-slate-600 prose-li:marker:text-accent-blue space-y-2"
+                    className="ai-report-content"
                     dangerouslySetInnerHTML={{ __html: parseMarkdown(answer) }}
                     />
                 </div>

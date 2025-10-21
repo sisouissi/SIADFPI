@@ -100,7 +100,7 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
                             <p className="font-bold text-slate-800">Patient: <span className="font-normal">{patient?.firstName} {patient?.lastName}</span></p>
                             <p className="font-bold text-slate-800">Date: <span className="font-normal">{new Date(consultation!.consultationDate).toLocaleDateString('fr-FR')}</span></p>
                         </div>
-                        <div className="prose prose-sm max-w-none text-slate-700" dangerouslySetInnerHTML={{ __html: parseMarkdown(report) }}>
+                        <div className="ai-report-content" dangerouslySetInnerHTML={{ __html: parseMarkdown(report) }}>
                         </div>
                     </div>
                     <div className="mt-6 pt-6 border-t border-slate-200 flex justify-end gap-3">
