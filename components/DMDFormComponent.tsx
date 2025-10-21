@@ -635,7 +635,7 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
         element.style.width = '800px';
     
         html2canvas(element, { 
-            scale: 2, 
+            scale: 1, 
             useCORS: true, 
             windowWidth: element.scrollWidth // Use the element's scroll width after setting a fixed width
         })

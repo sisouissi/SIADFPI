@@ -123,7 +123,7 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
             element.style.width = '800px';
     
             html2canvas(element, { 
-                scale: 2, 
+                scale: 1, 
                 useCORS: true, 
                 windowWidth: element.scrollWidth 
             }).then(canvas => {
