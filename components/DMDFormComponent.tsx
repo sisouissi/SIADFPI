@@ -508,6 +508,7 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
         return missing;
     };
 
+    // FIX: Refactor handleSaveClick to use the streaming version of generateConsultationSynthesis.
     const handleSaveClick = async () => {
         const missingFields = validateForm();
         if (missingFields.length > 0) {
@@ -529,7 +530,9 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
             
             const aiMarker = '--- RAPPORT IA ---';
             const userSummaryPart = formData.synthese.summary.split(aiMarker)[0].trim();
+
             const cleanedSummary = summary.includes('---') ? summary.split('---').slice(1).join('---').trim() : summary;
+
             const newFullSummary = `${userSummaryPart}\n\n${aiMarker}\n${cleanedSummary}`.trim();
             
             setFormData(prev => ({

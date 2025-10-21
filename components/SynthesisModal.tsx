@@ -15,66 +15,36 @@ interface SynthesisModalProps {
 }
 
 const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patient, consultation, onSaveReport }) => {
-    // FIX: Initialize report as an empty string to handle streaming content.
-    const [report, setReport] = useState<string>("");
+    const [report, setReport] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const printableAreaRef = useRef<HTMLDivElement>(null);
-    // FIX: Add a ref to accumulate the full report from stream chunks.
-    const fullReportRef = useRef("");
 
-    // FIX: Refactor useEffect to handle the streaming response from generateConsultationSynthesis.
     useEffect(() => {
         if (isOpen && consultation && patient) {
-            const generateReportStream = async () => {
+            const generateReport = async () => {
                 setIsLoading(true);
                 setError(null);
-                setReport("");
-                fullReportRef.current = "";
-
+                setReport(null);
+                // FIX: Update to handle streaming response from generateConsultationSynthesis.
+                let fullReport = "";
                 try {
-                    await generateConsultationSynthesis(
-                        patient,
-                        consultation,
-                        (chunk: string) => {
-                            fullReportRef.current += chunk;
-                            setReport(fullReportRef.current);
-                        }
-                    );
+                    await generateConsultationSynthesis(patient, consultation, (chunk: string) => {
+                        fullReport += chunk;
+                        // Update report as it streams
+                        const cleanedResult = fullReport.includes('---') ? fullReport.split('---').slice(1).join('---').trim() : fullReport;
+                        setReport(cleanedResult);
+                    });
                 } catch (err) {
                     setError(err instanceof Error ? err.message : 'Une erreur inconnue est survenue.');
                 } finally {
                     setIsLoading(false);
                 }
             };
-            generateReportStream();
+            generateReport();
         }
     }, [isOpen, consultation, patient]);
-
-    const handlePrint = () => {
-        const contentToPrint = printableAreaRef.current?.innerHTML;
-        if (contentToPrint && patient) {
-            const printWindow = window.open('', '_blank', 'height=800,width=800');
-            if (printWindow) {
-                printWindow.document.write('<html><head><title>Rapport de Consultation</title>');
-                printWindow.document.write(`<style>
-                    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
-                    body { font-family: 'Poppins', sans-serif; line-height: 1.6; color: #334155; margin: 2rem; }
-                    h1, h2, h3, h4 { color: #0F172A; } h1 { font-size: 1.5rem; }
-                    h2, h3, h4 { font-size: 1.25rem; font-weight: 700; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem; margin-top: 1.5rem; margin-bottom: 1rem; }
-                    p { margin-bottom: 1rem; } ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; } li { margin-bottom: 0.5rem; }
-                    @media print { body { -webkit-print-color-adjust: exact; } }
-                </style>`);
-                printWindow.document.write('</head><body>');
-                printWindow.document.write(contentToPrint);
-                printWindow.document.write('</body></html>');
-                printWindow.document.close();
-                printWindow.focus();
-                setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
-            }
-        }
-    };
 
     const handleDownloadPdf = () => {
         const element = printableAreaRef.current;
@@ -97,11 +67,9 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
         });
     };
 
-    // FIX: Update handleSave to use the accumulated report from the ref and clean it.
     const handleSave = () => {
-        if (fullReportRef.current) {
-            const cleanedResult = fullReportRef.current.includes('---') ? fullReportRef.current.split('---').slice(1).join('---').trim() : fullReportRef.current;
-            onSaveReport(cleanedResult);
+        if (report) {
+            onSaveReport(report);
         }
     };
 
@@ -111,7 +79,7 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
             onClose={onClose}
             title="Synthèse IA de la Consultation"
         >
-            {(isLoading && !report) && ( // Show loading spinner only initially
+            {isLoading && !report && (
                 <div className="flex flex-col items-center justify-center min-h-[300px]">
                     <svg className="animate-spin h-10 w-10 text-accent-blue mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -137,29 +105,21 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
                         <div className="ai-report-content" dangerouslySetInnerHTML={{ __html: parseMarkdown(report) }}>
                         </div>
                     </div>
-                    {!isLoading && (
-                        <div className="mt-6 pt-6 border-t border-slate-200 flex justify-end gap-3">
-                            <button
-                                onClick={handlePrint}
-                                className="px-6 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
-                            >
-                                Imprimer
-                            </button>
-                            <button
-                                onClick={handleDownloadPdf}
-                                disabled={isDownloading}
-                                className="px-6 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
-                            >
-                                {isDownloading ? 'Téléchargement...' : 'Télécharger en PDF'}
-                            </button>
-                            <button
-                                onClick={handleSave}
-                                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-green-300 focus:ring-opacity-50"
-                            >
-                                Enregistrer dans l'observation
-                            </button>
-                        </div>
-                    )}
+                    <div className="mt-6 pt-6 border-t border-slate-200 flex justify-end gap-3">
+                        <button
+                            onClick={handleDownloadPdf}
+                            disabled={isDownloading}
+                            className="px-6 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
+                        >
+                            {isDownloading ? 'Téléchargement...' : 'Télécharger en PDF'}
+                        </button>
+                        <button
+                            onClick={handleSave}
+                            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-green-300 focus:ring-opacity-50"
+                        >
+                            Enregistrer dans l'observation
+                        </button>
+                    </div>
                 </>
             )}
         </Modal>

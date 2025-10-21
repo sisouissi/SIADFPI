@@ -23,41 +23,35 @@ const CustomizedLabel: React.FC<any> = (props) => {
 };
 
 const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, onClose, patient, consultations }) => {
-    // FIX: Initialize report as an empty string to handle streaming content.
-    const [report, setReport] = useState<string>("");
+    const [report, setReport] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
     const [isSharing, setIsSharing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const printableAreaRef = useRef<HTMLDivElement>(null);
-    // FIX: Add a ref to accumulate the full report from stream chunks.
-    const fullReportRef = useRef("");
 
-    // FIX: Refactor useEffect to handle the streaming response from generateGeneralSynthesis.
     useEffect(() => {
         if (isOpen && patient && consultations.length > 0) {
-            const generateReportStream = async () => {
+            const generateReport = async () => {
                 setIsLoading(true);
                 setError(null);
-                setReport("");
-                fullReportRef.current = "";
-
+                setReport(null);
+                // FIX: Update to handle streaming response from generateGeneralSynthesis.
+                let fullReport = "";
                 try {
-                    await generateGeneralSynthesis(
-                        patient,
-                        consultations,
-                        (chunk: string) => {
-                            fullReportRef.current += chunk;
-                            setReport(fullReportRef.current);
-                        }
-                    );
+                    await generateGeneralSynthesis(patient, consultations, (chunk: string) => {
+                        fullReport += chunk;
+                        // Update report as it streams
+                        const cleanedResult = fullReport.includes('---') ? fullReport.split('---').slice(1).join('---').trim() : fullReport;
+                        setReport(cleanedResult);
+                    });
                 } catch (err) {
                     setError(err instanceof Error ? err.message : 'Une erreur inconnue est survenue.');
                 } finally {
                     setIsLoading(false);
                 }
             };
-            generateReportStream();
+            generateReport();
         }
     }, [isOpen, patient, consultations]);
     
@@ -173,7 +167,7 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
             onClose={onClose}
             title="Synthèse Générale du Dossier Patient"
         >
-            {(isLoading && !report) && (
+            {isLoading && !report && (
                 <div className="flex flex-col items-center justify-center min-h-[300px]">
                     <svg className="animate-spin h-10 w-10 text-purple-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -225,33 +219,31 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
                             </div>
                         )}
                     </div>
-                    {!isLoading && (
-                        <div className="mt-6 pt-6 border-t border-slate-200 flex flex-wrap justify-end gap-3">
+                    <div className="mt-6 pt-6 border-t border-slate-200 flex flex-wrap justify-end gap-3">
+                        <button
+                            onClick={handlePrint}
+                            className="px-4 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+                        >
+                            Imprimer
+                        </button>
+                        <button
+                            onClick={handleDownloadPdf}
+                            disabled={isDownloading}
+                            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-br from-sky-500 to-accent-blue text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-sky-300 focus:ring-opacity-50 disabled:opacity-50"
+                        >
+                            {isDownloading ? 'Téléchargement...' : 'Télécharger (PDF)'}
+                        </button>
+                        {navigator.share && (
                             <button
-                                onClick={handlePrint}
-                                className="px-4 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+                                onClick={handleShare}
+                                disabled={isSharing}
+                                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-br from-purple-500 to-violet-500 text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-purple-300 focus:ring-opacity-50 disabled:opacity-50"
                             >
-                                Imprimer
+                                <PaperAirplaneIcon className="w-5 h-5" />
+                                {isSharing ? 'Partage...' : 'Partager'}
                             </button>
-                            <button
-                                onClick={handleDownloadPdf}
-                                disabled={isDownloading}
-                                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-br from-sky-500 to-accent-blue text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-sky-300 focus:ring-opacity-50 disabled:opacity-50"
-                            >
-                                {isDownloading ? 'Téléchargement...' : 'Télécharger (PDF)'}
-                            </button>
-                            {navigator.share && (
-                                <button
-                                    onClick={handleShare}
-                                    disabled={isSharing}
-                                    className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-br from-purple-500 to-violet-500 text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-purple-300 focus:ring-opacity-50 disabled:opacity-50"
-                                >
-                                    <PaperAirplaneIcon className="w-5 h-5" />
-                                    {isSharing ? 'Partage...' : 'Partager'}
-                                </button>
-                            )}
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </>
             )}
         </Modal>
