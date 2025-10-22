@@ -278,7 +278,7 @@ const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId, onBack
             <div className="border-b border-slate-200 pb-4 mb-6">
                  <h2 className="text-3xl font-bold text-slate-800">{patient.lastName.toUpperCase()} {patient.firstName}</h2>
                  <p className="text-slate-500">
-                    {patient.gender} | Né(e) le: {new Date(patient.dateOfBirth).toLocaleDateString('fr-FR')} | ID: {patient.identifier} | Dr. {patient.referringDoctor}
+                    {patient.gender} | Né(e) le: {new Date(patient.dateOfBirth).toLocaleDateString('fr-FR')} | ID: {patient.identifier} | {patient.referringDoctor}
                  </p>
             </div>
 

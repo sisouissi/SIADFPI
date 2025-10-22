@@ -31,23 +31,27 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
     const [error, setError] = useState<string | null>(null);
     const printableAreaRef = useRef<HTMLDivElement>(null);
 
-    // FIX: Switched to streaming call for generateGeneralSynthesis.
     useEffect(() => {
         if (isOpen && patient && consultations.length > 0) {
             const generateReport = async () => {
                 setIsLoading(true);
                 setError(null);
+                // FIX: Initialize report as an empty string to support streaming.
                 setReport(''); // Use empty string to accumulate chunks
                 let fullReport = '';
                 try {
+                    // FIX: Call the streaming version of generateGeneralSynthesis with a callback to handle chunks.
                     await generateGeneralSynthesis(patient, consultations, (chunk: string) => {
                         fullReport += chunk;
                         setReport(fullReport); // This will show the streaming text
                     });
 
+                    // FIX: Check the accumulated `fullReport` instead of the void result.
                     if (fullReport.startsWith("Impossible de contacter")) {
+                        // FIX: Throw an error with the full report message.
                         throw new Error(fullReport);
                     }
+                    // FIX: Process the accumulated `fullReport` to clean it up.
                     const cleanedResult = fullReport.includes('---') ? fullReport.split('---').slice(1).join('---').trim() : fullReport;
                     setReport(cleanedResult);
                 } catch (err) {
@@ -151,7 +155,7 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
                     heightLeft -= pageContentHeight;
                 }
     
-                const pageCount = pdf.internal.getNumberOfPages();
+                const pageCount = pdf.getNumberOfPages();
                 for (let i = 1; i <= pageCount; i++) {
                     pdf.setPage(i);
                     pdf.setFontSize(9);

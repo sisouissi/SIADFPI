@@ -4,7 +4,6 @@ import { parseMarkdown } from '../services/markdownParser';
 import CompletenessDashboard from './CompletenessDashboard';
 import { checklistSections } from '../services/checklist';
 import Modal from './Modal';
-// FIX: Import 'generateExamSuggestions' to resolve the 'Cannot find name' error.
 import { generateConsultationSynthesis, generateExamSuggestions } from '../services/geminiService';
 import { SparklesIcon } from '../constants';
 import jsPDF from 'jspdf';
@@ -665,7 +664,7 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
                 heightLeft -= pageContentHeight;
             }
     
-            const pageCount = pdf.internal.getNumberOfPages();
+            const pageCount = pdf.getNumberOfPages();
             for (let i = 1; i <= pageCount; i++) {
                 pdf.setPage(i);
                 pdf.setFontSize(9);

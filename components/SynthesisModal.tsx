@@ -23,23 +23,27 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
     const [error, setError] = useState<string | null>(null);
     const printableAreaRef = useRef<HTMLDivElement>(null);
 
-    // FIX: Switched to streaming call for generateConsultationSynthesis.
     useEffect(() => {
         if (isOpen && consultation && patient) {
             const generateReport = async () => {
                 setIsLoading(true);
                 setError(null);
+                // FIX: Initialize report as an empty string to support streaming.
                 setReport(''); // Use empty string to accumulate chunks
                 let fullReport = '';
                 try {
+                    // FIX: Call the streaming version of generateConsultationSynthesis with a callback to handle chunks.
                     await generateConsultationSynthesis(patient, consultation, (chunk: string) => {
                         fullReport += chunk;
                         setReport(fullReport); // This will show the streaming text
                     });
 
+                    // FIX: Check the accumulated `fullReport` instead of the void result.
                     if (fullReport.startsWith("Impossible de contacter")) {
+                        // FIX: Throw an error with the full report message.
                         throw new Error(fullReport);
                     }
+                    // FIX: Process the accumulated `fullReport` to clean it up.
                     const cleanedResult = fullReport.includes('---') ? fullReport.split('---').slice(1).join('---').trim() : fullReport;
                     setReport(cleanedResult);
                 } catch (err) {
@@ -58,12 +62,11 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
     
         setIsDownloading(true);
     
-        // Temporarily set a fixed width on the element to ensure correct wrapping for html2canvas
         const originalWidth = element.style.width;
         element.style.width = '800px';
     
         html2canvas(element, { 
-            scale: 1, // Reduced scale to decrease file size
+            scale: 1,
             useCORS: true, 
             windowWidth: element.scrollWidth
         })
@@ -92,7 +95,7 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
                 heightLeft -= pageContentHeight;
             }
     
-            const pageCount = pdf.internal.getNumberOfPages();
+            const pageCount = pdf.getNumberOfPages();
             for (let i = 1; i <= pageCount; i++) {
                 pdf.setPage(i);
                 pdf.setFontSize(9);

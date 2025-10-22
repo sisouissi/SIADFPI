@@ -289,7 +289,7 @@ const seedDatabase = async () => {
             dateOfBirth: '1955-03-15',
             gender: 'Homme',
             identifier: 'JD-1955-01',
-            referringDoctor: 'Dr. Z. Souissi',
+            referringDoctor: 'Dr. Zouhair Souissi',
             createdAt: new Date('2023-01-20'),
             updatedAt: new Date('2023-07-25'),
         });
@@ -355,7 +355,7 @@ const seedDatabase = async () => {
             dateOfBirth: '1960-08-22',
             gender: 'Femme',
             identifier: 'MM-1960-02',
-            referringDoctor: 'Dr. L. Masmoudi',
+            referringDoctor: 'Dr. Lilia Masmoudi',
             createdAt: new Date('2023-03-10'),
             updatedAt: new Date('2023-03-10'),
         });

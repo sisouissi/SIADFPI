@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import ContentSection from '../components/ContentSection';
 import InfoCapsule from '../components/InfoCapsule';
 import AiAssistant from '../components/AiAssistant';
@@ -14,47 +15,25 @@ import {
     ShieldExclamationIcon,
     EyeIcon
 } from '../constants';
+import type { RadiologicalImage, RadiologicalSign } from '../data/radiologicalImages';
 
-const radiologicalImages = {
-  subpleuralBasal: {
-    src: './assets/images/subpleural-basal.png',
-    title: 'Exemple de Distribution Sous-pleurale et Basale',
-    alt: 'Scanner thoracique montrant une prédominance des anomalies fibrosantes aux bases et en sous-pleural',
-    description: "Cette distribution est caractéristique de la FPI. Les anomalies (réticulations, rayon de miel) sont plus marquées dans les régions inférieures (bases) et à la périphérie du poumon, juste sous la plèvre. Ce gradient apico-basal est un critère essentiel pour les patterns de PIC certaine et probable."
-  },
-  honeycombing: {
-    src: './assets/images/honeycombing.png',
-    title: 'Exemple de Rayon de Miel (Honeycombing)',
-    alt: 'Scanner thoracique montrant des kystes en rayon de miel',
-    description: "Le rayon de miel se caractérise par des espaces kystiques aériques en grappes, généralement de 3 à 10 mm de diamètre, avec des parois épaisses et bien définies. C'est le signe histologique d'une fibrose pulmonaire avancée et irréversible, et un critère majeur pour le pattern de PIC/UIP certaine."
-  },
-  reticulations: {
-    src: './assets/images/reticulations.png',
-    title: 'Exemple de Réticulations',
-    alt: 'Scanner thoracique montrant des réticulations intralobulaires',
-    description: "Les réticulations correspondent à un réseau de fines opacités linéaires entrecroisées. Elles traduisent l'épaississement des septa inter- et intra-lobulaires par la fibrose. C'est un signe fondamental de fibrose pulmonaire, présent dans les patterns de PIC certaine et probable."
-  },
-  tractionBronchiectasis: {
-    src: './assets/images/traction-bronchiectasis.png',
-    title: 'Exemple de Bronchectasies de Traction',
-    alt: 'Scanner thoracique montrant des bronchectasies de traction',
-    description: "Les bronchectasies (et bronchiolectasies) de traction sont une dilatation irrégulière des voies aériennes causée par la rétraction du parenchyme fibrosé adjacent. Elles sont un signe de fibrose établie et sont fréquemment associées au rayon de miel et aux réticulations."
-  },
-  groundGlass: {
-    src: './assets/images/ground-glass.png',
-    title: 'Exemple de Verre Dépoli',
-    alt: 'Scanner thoracique montrant des opacités en verre dépoli',
-    description: "L'opacité en verre dépoli est une augmentation de la densité pulmonaire qui n'efface pas les contours des vaisseaux et des bronches. Lorsqu'il est prédominant et étendu, il est considéré comme un signe atypique pour une FPI, orientant plutôt vers un autre diagnostic comme une PINS ou une PHS."
-  }
-};
-
-type RadiologicalSign = keyof typeof radiologicalImages;
 
 const DiagnosisPage: React.FC = () => {
-    const [selectedImage, setSelectedImage] = useState<{ src: string; alt: string; title: string; description: string; } | null>(null);
+    const [radiologicalImages, setRadiologicalImages] = useState<Record<RadiologicalSign, RadiologicalImage> | null>(null);
+    const [selectedImage, setSelectedImage] = useState<RadiologicalImage | null>(null);
+
+    useEffect(() => {
+        // Dynamically import the image data to code-split this large asset
+        import('../data/radiologicalImages').then(module => {
+            setRadiologicalImages(module.radiologicalImages);
+        });
+    }, []);
+
 
     const openImageModal = (sign: RadiologicalSign) => {
-        setSelectedImage(radiologicalImages[sign]);
+        if (radiologicalImages) {
+            setSelectedImage(radiologicalImages[sign]);
+        }
     };
 
     const closeImageModal = () => {
@@ -64,10 +43,12 @@ const DiagnosisPage: React.FC = () => {
     const ViewImageButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
         <button
             onClick={(e) => { e.stopPropagation(); onClick(); }}
-            className="ml-3 inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold text-sky-600 bg-sky-100 rounded-full border border-sky-200 hover:bg-sky-200 transition-colors"
+            className="ml-3 inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold text-sky-600 bg-sky-100 rounded-full border border-sky-200 hover:bg-sky-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!radiologicalImages}
+            aria-busy={!radiologicalImages}
         >
             <EyeIcon className="w-3 h-3" />
-            Voir un exemple
+            {radiologicalImages ? 'Voir un exemple' : 'Chargement...'}
         </button>
     );
 
@@ -181,7 +162,7 @@ const DiagnosisPage: React.FC = () => {
                         <img 
                             src={selectedImage.src} 
                             alt={selectedImage.alt} 
-                            className="max-w-full h-auto rounded-lg mx-auto border border-slate-200"
+                            className="max-w-full h-auto rounded-lg mx-auto border border-slate-200 bg-slate-800"
                         />
                         <p className="mt-4 text-slate-600 text-sm leading-relaxed">{selectedImage.description}</p>
                     </div>
