@@ -23,18 +23,18 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
     const [error, setError] = useState<string | null>(null);
     const printableAreaRef = useRef<HTMLDivElement>(null);
 
-    // FIX: Switched to streaming call for generateConsultationSynthesis to handle chunks and prevent timeouts.
     useEffect(() => {
         if (isOpen && consultation && patient) {
             const generateReport = async () => {
                 setIsLoading(true);
                 setError(null);
-                setReport(''); // Use empty string to accumulate chunks
-                let fullReport = '';
+                setReport(null);
                 try {
+                    // FIX: Adapt to streaming API call for generateConsultationSynthesis.
+                    let fullReport = '';
                     await generateConsultationSynthesis(patient, consultation, (chunk: string) => {
                         fullReport += chunk;
-                        setReport(fullReport); // This will show the streaming text
+                        setReport(fullReport);
                     });
 
                     if (fullReport.startsWith("Impossible de contacter")) {
@@ -52,13 +52,55 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
         }
     }, [isOpen, consultation, patient]);
 
+    const handlePrint = () => {
+        const contentToPrint = printableAreaRef.current;
+        if (!contentToPrint) return;
+
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+            printWindow.document.write('<html><head><title>Rapport de Consultation</title>');
+            printWindow.document.write(`<style>
+                @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+                @page { 
+                    margin: 1.5cm;
+                    @bottom-center {
+                        content: "Page " counter(page) " / " counter(pages);
+                        font-size: 9pt;
+                        color: #808080;
+                    }
+                }
+                body { font-family: 'Poppins', sans-serif; line-height: 1.6; color: #334155; margin: 0; }
+                h1, h2, h3, h4 { color: #0F172A; margin: 0; }
+                .ai-report-content h2, .ai-report-content h3, .ai-report-content h4 {
+                    font-size: 1.25rem; font-weight: 700; color: #1e293b;
+                    border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem;
+                    margin-top: 1.5rem; margin-bottom: 1rem;
+                }
+                .ai-report-content p { margin-bottom: 1rem; }
+                .ai-report-content ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+                .ai-report-content li { margin-bottom: 0.5rem; }
+                @media print { 
+                    body { -webkit-print-color-adjust: exact; } 
+                    .no-print { display: none; }
+                    h1, h2, h3, h4, h5, h6 { page-break-after: avoid; }
+                    p, ul, table { page-break-inside: avoid; }
+                }
+            </style>`);
+            printWindow.document.write('</head><body>');
+            printWindow.document.write(contentToPrint.innerHTML);
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
+        }
+    };
+
     const handleDownloadPdf = () => {
         const element = printableAreaRef.current;
         if (!element || !patient || !consultation) return;
     
         setIsDownloading(true);
     
-        // Temporarily set a fixed width on the element to ensure correct wrapping for html2canvas
         const originalWidth = element.style.width;
         element.style.width = '800px';
     
@@ -73,7 +115,7 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
             const pdf = new jsPDF('p', 'pt', 'a4');
             const pdfWidth = pdf.internal.pageSize.getWidth();
             const pdfHeight = pdf.internal.pageSize.getHeight();
-            const margin = 42.5; // 1.5cm in points
+            const margin = 42.5;
     
             const imgWidth = pdfWidth - margin * 2;
             const imgHeight = canvas.height * imgWidth / canvas.width;
@@ -92,7 +134,6 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
                 heightLeft -= pageContentHeight;
             }
     
-            // FIX: Use `pdf.getNumberOfPages()` for accurate page count.
             const pageCount = pdf.getNumberOfPages();
             for (let i = 1; i <= pageCount; i++) {
                 pdf.setPage(i);
@@ -131,7 +172,6 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
             onClose={onClose}
             title="Synthèse IA de la Consultation"
         >
-            {/* FIX: Display loader only when loading and no report has been streamed yet. */}
             {isLoading && !report && (
                 <div className="flex flex-col items-center justify-center min-h-[300px]">
                     <svg className="animate-spin h-10 w-10 text-accent-blue mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -159,7 +199,13 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
                         </div>
                     </div>
                     {!isLoading && (
-                        <div className="mt-6 pt-6 border-t border-slate-200 flex justify-end gap-3">
+                        <div className="mt-6 pt-6 border-t border-slate-200 flex justify-end gap-3 no-print">
+                            <button
+                                onClick={handlePrint}
+                                className="px-6 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+                            >
+                                Imprimer
+                            </button>
                             <button
                                 onClick={handleDownloadPdf}
                                 disabled={isDownloading}

@@ -31,18 +31,18 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
     const [error, setError] = useState<string | null>(null);
     const printableAreaRef = useRef<HTMLDivElement>(null);
 
-    // FIX: Switched to streaming call for generateGeneralSynthesis to handle chunks and prevent timeouts.
     useEffect(() => {
         if (isOpen && patient && consultations.length > 0) {
             const generateReport = async () => {
                 setIsLoading(true);
                 setError(null);
-                setReport(''); // Use empty string to accumulate chunks
+                setReport('');
                 let fullReport = '';
                 try {
+                    // FIX: Adapt to streaming API call for generateGeneralSynthesis.
                     await generateGeneralSynthesis(patient, consultations, (chunk: string) => {
                         fullReport += chunk;
-                        setReport(fullReport); // This will show the streaming text
+                        setReport(fullReport);
                     });
 
                     if (fullReport.startsWith("Impossible de contacter")) {
@@ -92,12 +92,20 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
             printWindow.document.write('<html><head><title>Synthèse Générale du Dossier Patient</title>');
             printWindow.document.write(`<style>
                 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
-                @page { margin: 1.5cm; }
+                @page { 
+                    margin: 1.5cm;
+                    @bottom-center {
+                        content: "Page " counter(page) " / " counter(pages);
+                        font-size: 9pt;
+                        color: #808080;
+                    }
+                }
                 body { font-family: 'Poppins', sans-serif; line-height: 1.6; color: #334155; margin: 0; }
-                h1, h2, h3 { color: #0F172A; } h3 { border-bottom: 1px solid #E2E8F0; padding-bottom: 0.5rem; margin-top: 1.5rem; } 
+                h1, h2, h3, h4 { color: #0F172A; } h3 { border-bottom: 1px solid #E2E8F0; padding-bottom: 0.5rem; margin-top: 1.5rem; } 
                 .recharts-wrapper { margin: 0 auto; max-width: 100%; }
                 @media print { 
                     body { -webkit-print-color-adjust: exact; }
+                    .no-print { display: none; }
                     h1, h2, h3, h4, h5, h6 { page-break-after: avoid; }
                     p, ul, table, .recharts-wrapper { page-break-inside: avoid; }
                 }
@@ -151,7 +159,6 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
                     heightLeft -= pageContentHeight;
                 }
     
-                // FIX: Use `pdf.getNumberOfPages()` instead of `pdf.internal.getNumberOfPages()`.
                 const pageCount = pdf.getNumberOfPages();
                 for (let i = 1; i <= pageCount; i++) {
                     pdf.setPage(i);
@@ -221,7 +228,6 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
             onClose={onClose}
             title="Synthèse Générale du Dossier Patient"
         >
-            {/* FIX: Display loader only when loading and no report has been streamed yet. */}
             {isLoading && !report && (
                 <div className="flex flex-col items-center justify-center min-h-[300px]">
                     <svg className="animate-spin h-10 w-10 text-purple-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -275,7 +281,7 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
                         )}
                     </div>
                     {!isLoading && (
-                        <div className="mt-6 pt-6 border-t border-slate-200 flex flex-wrap justify-end gap-3">
+                        <div className="mt-6 pt-6 border-t border-slate-200 flex flex-wrap justify-end gap-3 no-print">
                             <button
                                 onClick={handlePrint}
                                 className="px-4 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"

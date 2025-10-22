@@ -37,6 +37,43 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, patient, con
         return "Indéterminé";
     };
 
+    const handlePrint = () => {
+        const contentToPrint = printableAreaRef.current;
+        if (!contentToPrint) return;
+
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+            printWindow.document.write('<html><head><title>Rapport Patient</title>');
+            printWindow.document.write(`<style>
+                @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+                @page { 
+                    margin: 1.5cm;
+                    @bottom-center {
+                        content: "Page " counter(page) " / " counter(pages);
+                        font-size: 9pt;
+                        color: #808080;
+                    }
+                }
+                body { font-family: 'Poppins', sans-serif; line-height: 1.6; color: #334155; margin: 0; }
+                h1, h2, h3, h4 { color: #0F172A; }
+                .ai-report-content h2, .ai-report-content h3 { border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem; margin-top: 1.5rem; }
+                .break-inside-avoid-page { break-inside: avoid; page-break-inside: avoid; }
+                @media print { 
+                    body { -webkit-print-color-adjust: exact; } 
+                    .no-print { display: none; }
+                    h1, h2, h3, h4, h5, h6 { page-break-after: avoid; }
+                    p, ul, table, .recharts-wrapper { page-break-inside: avoid; }
+                }
+            </style>`);
+            printWindow.document.write('</head><body>');
+            printWindow.document.write(contentToPrint.innerHTML);
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
+        }
+    };
+
     const handleDownloadPdf = () => {
         const element = printableAreaRef.current;
         if (!element || !patient) return;
@@ -47,7 +84,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, patient, con
         element.style.width = '800px'; 
     
         html2canvas(element, { 
-            scale: 2,
+            scale: 1,
             useCORS: true,
             windowWidth: 800
         }).then(canvas => {
@@ -119,7 +156,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, patient, con
 
                 {/* Section Évolution Graphique */}
                 {chartData.length > 1 && (
-                    <div className="mb-8">
+                    <div className="mb-8 break-inside-avoid-page">
                         <h2 className="text-xl font-bold text-slate-800 mb-4">Évolution des Paramètres Fonctionnels</h2>
                         <div className="w-full h-80 bg-white p-2 rounded-lg border border-slate-200">
                             <ResponsiveContainer>
@@ -140,7 +177,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, patient, con
                 )}
                 
                 {/* Section Historique des Consultations */}
-                <div className="break-after-page">
+                <div>
                     <h2 className="text-xl font-bold text-slate-800 mb-4">Historique des Consultations</h2>
                     <div className="space-y-6">
                         {consultations.map(c => {
@@ -186,8 +223,14 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, patient, con
                 </div>
             </div>
             
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex justify-end gap-3 no-print">
                  <button
+                    onClick={handlePrint}
+                    className="px-6 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+                >
+                    Imprimer
+                </button>
+                <button
                     onClick={handleDownloadPdf}
                     disabled={isDownloading}
                     className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-green-300 focus:ring-opacity-50 disabled:opacity-50"
