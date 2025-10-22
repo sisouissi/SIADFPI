@@ -63,7 +63,7 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
         element.style.width = '800px';
     
         html2canvas(element, { 
-            scale: 1, // Reduced scale to decrease file size
+            scale: 1, 
             useCORS: true, 
             windowWidth: element.scrollWidth
         })

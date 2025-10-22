@@ -4,7 +4,8 @@ import { Patient, Consultation } from '../types';
 import DMDFormComponent from './DMDFormComponent';
 import SynthesisModal from './SynthesisModal';
 import GeneralSynthesisModal from './GeneralSynthesisModal';
-import { SparklesIcon, DocumentLockClosedIcon, UserIcon, CalendarDaysIcon, AcademicCapIcon } from '../constants';
+import ReportModal from './ReportModal'; // Import du nouveau composant
+import { SparklesIcon, DocumentLockClosedIcon, UserIcon, CalendarDaysIcon, AcademicCapIcon, DocumentArrowDownIcon } from '../constants';
 import { encryptData } from '../services/cryptoService';
 import Modal from './Modal';
 
@@ -80,6 +81,7 @@ const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId, onBack
   const [currentConsultation, setCurrentConsultation] = useState<Consultation | null>(null);
   const [isSynthesisModalOpen, setIsSynthesisModalOpen] = useState(false);
   const [isGeneralSynthesisModalOpen, setIsGeneralSynthesisModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false); // Nouvel état pour le modal de rapport
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [selectedConsultationForSynthesis, setSelectedConsultationForSynthesis] = useState<Consultation | null>(null);
@@ -299,14 +301,18 @@ const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId, onBack
 
             <div className="flex flex-wrap justify-between items-center mb-4 gap-4">
                 <h3 className="text-xl font-bold text-slate-700">Historique des Consultations</h3>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center flex-wrap gap-3">
+                    <button onClick={() => setIsReportModalOpen(true)} className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-green-300 focus:ring-opacity-50">
+                        <DocumentArrowDownIcon className="w-5 h-5" />
+                        Exporter PDF
+                    </button>
                     <button onClick={() => setIsExportModalOpen(true)} className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-br from-teal-500 to-cyan-600 text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-teal-300 focus:ring-opacity-50">
                         <DocumentLockClosedIcon className="w-5 h-5" />
-                        Exporter
+                        Exporter (.fpi)
                     </button>
                     <button onClick={() => setIsGeneralSynthesisModalOpen(true)} className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-br from-purple-500 to-violet-500 text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-purple-300 focus:ring-opacity-50">
                         <SparklesIcon className="w-5 h-5" />
-                        Synthèse générale
+                        Synthèse IA
                     </button>
                     <button onClick={handleAddNewConsultation} className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-br from-sky-500 to-accent-blue text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-sky-300 focus:ring-opacity-50">
                         <PlusIcon />
@@ -331,7 +337,7 @@ const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId, onBack
                                     title="Générer une synthèse avec l'IA"
                                 >
                                     <SparklesIcon className="w-4 h-4" />
-                                    Synthèse IA
+                                    Rapport IA
                                 </button>
                                 <button onClick={() => setCurrentConsultation(c)} className="px-3 py-1 text-xs font-bold text-sky-700 bg-sky-100 border-2 border-sky-200 rounded-full hover:bg-sky-200 hover:border-sky-300 transition-colors">
                                     Voir / Modifier
@@ -367,6 +373,12 @@ const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId, onBack
             consultations={consultations}
           />
       )}
+      <ReportModal
+          isOpen={isReportModalOpen}
+          onClose={() => setIsReportModalOpen(false)}
+          patient={patient}
+          consultations={consultations}
+      />
       <ExportPatientModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}

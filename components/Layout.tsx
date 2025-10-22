@@ -12,6 +12,7 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children, activeSectionId, onNavigate }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const doctorName = process.env.VITE_DOCTOR_NAME || 'Docteur Zouhair Souissi';
 
   return (
     <div className="flex h-screen bg-sapphire-dark text-text-light">
@@ -49,7 +50,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeSectionId, onNavigate }
             </div>
             <PageNavigation activeSectionId={activeSectionId} onNavigate={onNavigate} />
             <footer className="text-center text-sm text-slate-500 mt-8 py-4">
-              © 2025 SIAD-FPI Application développée par Docteur Zouhair Souissi basée sur le Guide FPI 2022 de la STMRA.
+              © 2025 SIAD-FPI Application développée par {doctorName} basée sur le Guide FPI 2022 de la STMRA.
             </footer>
         </div>
       </main>
