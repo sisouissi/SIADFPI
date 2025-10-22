@@ -26,8 +26,6 @@ const CustomizedLabel: React.FC<any> = (props) => {
 const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, onClose, patient, consultations }) => {
     const [report, setReport] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [isDownloading, setIsDownloading] = useState(false);
-    const [isSharing, setIsSharing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const printableAreaRef = useRef<HTMLDivElement>(null);
 
@@ -36,10 +34,10 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
             const generateReport = async () => {
                 setIsLoading(true);
                 setError(null);
-                setReport('');
+                setReport(null);
                 let fullReport = '';
                 try {
-                    // FIX: Adapt to streaming API call for generateGeneralSynthesis.
+                    // FIX: Use the streaming version of generateGeneralSynthesis by providing a callback to accumulate chunks.
                     await generateGeneralSynthesis(patient, consultations, (chunk: string) => {
                         fullReport += chunk;
                         setReport(fullReport);
@@ -118,108 +116,9 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
             setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
         }
     };
-
-    const generatePdf = async (): Promise<jsPDF> => {
-        return new Promise((resolve, reject) => {
-            const element = printableAreaRef.current;
-            if (!element) {
-                reject(new Error("Element to print not found."));
-                return;
-            }
     
-            const originalWidth = element.style.width;
-            element.style.width = '800px';
-    
-            html2canvas(element, { 
-                scale: 1, 
-                useCORS: true, 
-                windowWidth: element.scrollWidth 
-            }).then(canvas => {
-                element.style.width = originalWidth;
-    
-                const pdf = new jsPDF('p', 'pt', 'a4');
-                const pdfWidth = pdf.internal.pageSize.getWidth();
-                const pdfHeight = pdf.internal.pageSize.getHeight();
-                const margin = 42.5;
-    
-                const imgWidth = pdfWidth - margin * 2;
-                const imgHeight = canvas.height * imgWidth / canvas.width;
-                const pageContentHeight = pdfHeight - margin * 2;
-    
-                let heightLeft = imgHeight;
-                let position = 0;
-    
-                pdf.addImage(canvas, 'PNG', margin, margin, imgWidth, imgHeight);
-                heightLeft -= pageContentHeight;
-    
-                while (heightLeft > 0) {
-                    position -= pageContentHeight;
-                    pdf.addPage();
-                    pdf.addImage(canvas, 'PNG', margin, position, imgWidth, imgHeight);
-                    heightLeft -= pageContentHeight;
-                }
-    
-                const pageCount = pdf.getNumberOfPages();
-                for (let i = 1; i <= pageCount; i++) {
-                    pdf.setPage(i);
-                    pdf.setFontSize(9);
-                    pdf.setTextColor(128);
-                    pdf.text(`Page ${i} / ${pageCount}`, pdfWidth / 2, pdfHeight - 20, { align: 'center' });
-                }
-                resolve(pdf);
-            }).catch(err => {
-                element.style.width = originalWidth;
-                reject(err);
-            });
-        });
-    };
-
-    const handleDownloadPdf = async () => {
-        if (!patient) return;
-        setIsDownloading(true);
-        try {
-            const pdf = await generatePdf();
-            const date = new Date().toISOString().slice(0, 10);
-            pdf.save(`synthese-generale-${patient.lastName}-${date}.pdf`);
-        } catch(err) {
-            console.error("Erreur de génération PDF : ", err);
-            alert("Une erreur est survenue lors de la génération du PDF.");
-        } finally {
-            setIsDownloading(false);
-        }
-    };
-
-    const handleShare = async () => {
-        if (!navigator.share || !patient) {
-            alert("La fonction de partage n'est pas supportée sur ce navigateur.");
-            return;
-        }
-
-        setIsSharing(true);
-        try {
-            const pdf = await generatePdf();
-            const blob = pdf.output('blob');
-            const date = new Date().toISOString().slice(0, 10);
-            const filename = `synthese-generale-${patient.lastName}-${date}.pdf`;
-            const file = new File([blob], filename, { type: 'application/pdf' });
-
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                await navigator.share({
-                    title: `Synthèse patient ${patient.lastName}`,
-                    text: `Ci-joint la synthèse du dossier pour ${patient.firstName} ${patient.lastName}.`,
-                    files: [file],
-                });
-            } else {
-                throw new Error("Impossible de partager ce type de fichier.");
-            }
-        } catch (error) {
-            console.error('Erreur de partage:', error);
-            if ( (error as Error).name !== 'AbortError') {
-                 alert(`Erreur de partage : ${(error as Error).message}`);
-            }
-        } finally {
-            setIsSharing(false);
-        }
+    const handleDownloadPdf = () => {
+        handlePrint();
     };
 
     return (
@@ -290,21 +189,10 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
                             </button>
                             <button
                                 onClick={handleDownloadPdf}
-                                disabled={isDownloading}
-                                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-br from-sky-500 to-accent-blue text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-sky-300 focus:ring-opacity-50 disabled:opacity-50"
+                                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-br from-sky-500 to-accent-blue text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-sky-300 focus:ring-opacity-50"
                             >
-                                {isDownloading ? 'Téléchargement...' : 'Télécharger (PDF)'}
+                                Télécharger (PDF)
                             </button>
-                            {navigator.share && (
-                                <button
-                                    onClick={handleShare}
-                                    disabled={isSharing}
-                                    className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-br from-purple-500 to-violet-500 text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-purple-300 focus:ring-opacity-50 disabled:opacity-50"
-                                >
-                                    <PaperAirplaneIcon className="w-5 h-5" />
-                                    {isSharing ? 'Partage...' : 'Partager'}
-                                </button>
-                            )}
                         </div>
                     )}
                 </>

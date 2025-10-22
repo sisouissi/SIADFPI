@@ -14,7 +14,6 @@ interface ReportModalProps {
 }
 
 const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, patient, consultations }) => {
-    const [isDownloading, setIsDownloading] = useState(false);
     const printableAreaRef = useRef<HTMLDivElement>(null);
     
     if (!patient) return null;
@@ -75,61 +74,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, patient, con
     };
 
     const handleDownloadPdf = () => {
-        const element = printableAreaRef.current;
-        if (!element || !patient) return;
-    
-        setIsDownloading(true);
-    
-        const originalWidth = element.style.width;
-        element.style.width = '800px'; 
-    
-        html2canvas(element, { 
-            scale: 1,
-            useCORS: true,
-            windowWidth: 800
-        }).then(canvas => {
-            element.style.width = originalWidth;
-    
-            const pdf = new jsPDF('p', 'pt', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-            const margin = 40;
-    
-            const contentWidth = pdfWidth - margin * 2;
-            const contentHeight = canvas.height * contentWidth / canvas.width;
-            const pageHeight = pdfHeight - margin * 2;
-    
-            let heightLeft = contentHeight;
-            let position = 0;
-    
-            pdf.addImage(canvas, 'PNG', margin, margin, contentWidth, contentHeight);
-            heightLeft -= pageHeight;
-    
-            while (heightLeft > 0) {
-                position = position - pageHeight;
-                pdf.addPage();
-                pdf.addImage(canvas, 'PNG', margin, position, contentWidth, contentHeight);
-                heightLeft -= pageHeight;
-            }
-    
-            const pageCount = pdf.getNumberOfPages();
-            for (let i = 1; i <= pageCount; i++) {
-                pdf.setPage(i);
-                pdf.setFontSize(9);
-                pdf.setTextColor(128);
-                pdf.text(`Page ${i} / ${pageCount}`, pdfWidth / 2, pdfHeight - 20, { align: 'center' });
-                pdf.text(`${patient.lastName} ${patient.firstName} - ${new Date().toLocaleDateString('fr-FR')}`, margin, pdfHeight - 20);
-            }
-    
-            const date = new Date().toISOString().slice(0, 10);
-            pdf.save(`rapport-${patient.lastName}-${date}.pdf`);
-        }).catch(err => {
-            element.style.width = originalWidth;
-            console.error("Erreur de génération PDF : ", err);
-            alert("Une erreur est survenue lors de la génération du PDF.");
-        }).finally(() => {
-            setIsDownloading(false);
-        });
+        handlePrint();
     };
 
     return (
@@ -196,14 +141,9 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, patient, con
                                         <p><strong>TM6 (distance) :</strong> {c.formData.examens.tm6.distance || 'N/A'} m</p>
                                         <p><strong>TM6 (SpO2 min) :</strong> {c.formData.examens.tm6.spo2Min || 'N/A'} %</p>
                                         <p className="col-span-2"><strong>Pattern TDM-HR :</strong> {getTdmPattern(c)}</p>
+                                        
                                         <div className="col-span-2 mt-2">
-                                            <strong>Conclusion RCP :</strong>
-                                            <div className="text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 mt-1 text-base">
-                                                {userSummary || 'Aucune conclusion rédigée.'}
-                                            </div>
-                                        </div>
-                                        <div className="col-span-2 mt-2">
-                                            <strong>Synthèse IA :</strong>
+                                            <strong className="text-md font-bold text-slate-700">Synthèse IA :</strong>
                                             {aiSummary ? (
                                                 <div
                                                     className="text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 mt-1 ai-report-content text-base"
@@ -214,6 +154,12 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, patient, con
                                                     (Non générée pour cette consultation)
                                                 </div>
                                             )}
+                                        </div>
+                                        <div className="col-span-2 mt-2">
+                                            <strong className="text-md font-bold text-slate-700">Conclusion du comité RCP :</strong>
+                                            <div className="text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 mt-1 text-base">
+                                                {userSummary || 'Aucune conclusion rédigée.'}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -232,10 +178,9 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, patient, con
                 </button>
                 <button
                     onClick={handleDownloadPdf}
-                    disabled={isDownloading}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-green-300 focus:ring-opacity-50 disabled:opacity-50"
+                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-green-300 focus:ring-opacity-50"
                 >
-                    {isDownloading ? 'Génération...' : 'Télécharger le Rapport'}
+                    Télécharger le Rapport
                 </button>
             </div>
         </Modal>

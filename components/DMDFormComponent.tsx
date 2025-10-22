@@ -4,7 +4,6 @@ import { parseMarkdown } from '../services/markdownParser';
 import CompletenessDashboard from './CompletenessDashboard';
 import { checklistSections } from '../services/checklist';
 import Modal from './Modal';
-// FIX: Import 'generateExamSuggestions' to resolve the 'Cannot find name' error.
 import { generateConsultationSynthesis, generateExamSuggestions } from '../services/geminiService';
 import { SparklesIcon } from '../constants';
 import jsPDF from 'jspdf';
@@ -286,7 +285,6 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
     const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
     const [generatedSummary, setGeneratedSummary] = useState('');
     const [isSummaryReportModalOpen, setIsSummaryReportModalOpen] = useState(false);
-    const [isDownloading, setIsDownloading] = useState(false);
     const reportToPrintRef = useRef<HTMLDivElement>(null);
 
 
@@ -625,71 +623,7 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
     };
 
     const handleDownloadPdf = () => {
-        const element = reportToPrintRef.current;
-        if (!element || !patient) return;
-    
-        setIsDownloading(true);
-    
-        // Temporarily set a fixed width on the element to ensure correct wrapping for html2canvas
-        const originalWidth = element.style.width;
-        element.style.width = '800px';
-    
-        html2canvas(element, { 
-            scale: 1, 
-            useCORS: true, 
-            windowWidth: element.scrollWidth // Use the element's scroll width after setting a fixed width
-        })
-        .then((canvas) => {
-            // Restore original width after canvas capture
-            element.style.width = originalWidth;
-    
-            const pdf = new jsPDF('p', 'pt', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-            const margin = 42.5; // 1.5cm in points
-    
-            const imgWidth = pdfWidth - margin * 2;
-            const imgHeight = canvas.height * imgWidth / canvas.width;
-            const pageContentHeight = pdfHeight - margin * 2;
-    
-            let heightLeft = imgHeight;
-            let position = 0;
-    
-            pdf.addImage(canvas, 'PNG', margin, margin, imgWidth, imgHeight);
-            heightLeft -= pageContentHeight;
-    
-            while (heightLeft > 0) {
-                position -= pageContentHeight;
-                pdf.addPage();
-                pdf.addImage(canvas, 'PNG', margin, position, imgWidth, imgHeight);
-                heightLeft -= pageContentHeight;
-            }
-    
-            // FIX: Use `pdf.getNumberOfPages()` instead of `pdf.internal.getNumberOfPages()`.
-            const pageCount = pdf.getNumberOfPages();
-            for (let i = 1; i <= pageCount; i++) {
-                pdf.setPage(i);
-                pdf.setFontSize(9);
-                pdf.setTextColor(128);
-                pdf.text(
-                    `Page ${i} / ${pageCount}`,
-                    pdf.internal.pageSize.getWidth() / 2,
-                    pdf.internal.pageSize.getHeight() - 20,
-                    { align: 'center' }
-                );
-            }
-    
-            const date = new Date().toISOString().slice(0, 10);
-            pdf.save(`rapport-${patient.lastName}-${date}.pdf`);
-        })
-        .catch(err => {
-            element.style.width = originalWidth; // Restore on error
-            console.error("Erreur de génération PDF : ", err);
-            alert("Une erreur est survenue lors de la génération du PDF.");
-        })
-        .finally(() => {
-            setIsDownloading(false);
-        });
+        handlePrint();
     };
 
     const baseTests = ['AAN', 'Facteur Rhumatoïde', 'Anti-CCP', 'ANCA', 'CPK'];
@@ -1550,10 +1484,9 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
                     </button>
                     <button
                         onClick={handleDownloadPdf}
-                        disabled={isDownloading}
-                        className="px-4 py-2 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700 disabled:opacity-50"
+                        className="px-4 py-2 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700"
                     >
-                        {isDownloading ? 'Téléchargement...' : 'Télécharger en PDF'}
+                        Télécharger en PDF
                     </button>
                 </div>
             </Modal>

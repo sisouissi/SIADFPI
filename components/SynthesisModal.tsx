@@ -19,7 +19,6 @@ interface SynthesisModalProps {
 const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patient, consultation, onSaveReport }) => {
     const [report, setReport] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [isDownloading, setIsDownloading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const printableAreaRef = useRef<HTMLDivElement>(null);
 
@@ -29,9 +28,9 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
                 setIsLoading(true);
                 setError(null);
                 setReport(null);
+                let fullReport = '';
                 try {
-                    // FIX: Adapt to streaming API call for generateConsultationSynthesis.
-                    let fullReport = '';
+                    // FIX: Use the streaming version of generateConsultationSynthesis by providing a callback to accumulate chunks.
                     await generateConsultationSynthesis(patient, consultation, (chunk: string) => {
                         fullReport += chunk;
                         setReport(fullReport);
@@ -96,68 +95,7 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
     };
 
     const handleDownloadPdf = () => {
-        const element = printableAreaRef.current;
-        if (!element || !patient || !consultation) return;
-    
-        setIsDownloading(true);
-    
-        const originalWidth = element.style.width;
-        element.style.width = '800px';
-    
-        html2canvas(element, { 
-            scale: 1, 
-            useCORS: true, 
-            windowWidth: element.scrollWidth
-        })
-        .then((canvas) => {
-            element.style.width = originalWidth;
-    
-            const pdf = new jsPDF('p', 'pt', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-            const margin = 42.5;
-    
-            const imgWidth = pdfWidth - margin * 2;
-            const imgHeight = canvas.height * imgWidth / canvas.width;
-            const pageContentHeight = pdfHeight - margin * 2;
-    
-            let heightLeft = imgHeight;
-            let position = 0;
-    
-            pdf.addImage(canvas, 'PNG', margin, margin, imgWidth, imgHeight);
-            heightLeft -= pageContentHeight;
-    
-            while (heightLeft > 0) {
-                position -= pageContentHeight;
-                pdf.addPage();
-                pdf.addImage(canvas, 'PNG', margin, position, imgWidth, imgHeight);
-                heightLeft -= pageContentHeight;
-            }
-    
-            const pageCount = pdf.getNumberOfPages();
-            for (let i = 1; i <= pageCount; i++) {
-                pdf.setPage(i);
-                pdf.setFontSize(9);
-                pdf.setTextColor(128);
-                pdf.text(
-                    `Page ${i} / ${pageCount}`,
-                    pdf.internal.pageSize.getWidth() / 2,
-                    pdf.internal.pageSize.getHeight() - 20,
-                    { align: 'center' }
-                );
-            }
-    
-            const date = new Date(consultation.consultationDate).toISOString().slice(0, 10);
-            pdf.save(`rapport-${patient.lastName}-${date}.pdf`);
-        })
-        .catch(err => {
-            element.style.width = originalWidth;
-            console.error("Erreur de génération PDF : ", err);
-            alert("Une erreur est survenue lors de la génération du PDF.");
-        })
-        .finally(() => {
-            setIsDownloading(false);
-        });
+        handlePrint();
     };
 
     const handleSave = () => {
@@ -208,10 +146,9 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
                             </button>
                             <button
                                 onClick={handleDownloadPdf}
-                                disabled={isDownloading}
-                                className="px-6 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
+                                className="px-6 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
                             >
-                                {isDownloading ? 'Téléchargement...' : 'Télécharger en PDF'}
+                                Télécharger en PDF
                             </button>
                             <button
                                 onClick={handleSave}
