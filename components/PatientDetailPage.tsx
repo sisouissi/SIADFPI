@@ -4,7 +4,7 @@ import { Patient, Consultation } from '../types';
 import DMDFormComponent from './DMDFormComponent';
 import SynthesisModal from './SynthesisModal';
 import GeneralSynthesisModal from './GeneralSynthesisModal';
-import { SparklesIcon, DocumentLockClosedIcon } from '../constants';
+import { SparklesIcon, DocumentLockClosedIcon, UserIcon, CalendarDaysIcon, AcademicCapIcon } from '../constants';
 import { encryptData } from '../services/cryptoService';
 import Modal from './Modal';
 
@@ -277,9 +277,24 @@ const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId, onBack
          <div className="bg-white p-8 rounded-xl shadow-lg border border-slate-200">
             <div className="border-b border-slate-200 pb-4 mb-6">
                  <h2 className="text-3xl font-bold text-slate-800">{patient.lastName.toUpperCase()} {patient.firstName}</h2>
-                 <p className="text-slate-500">
-                    {patient.gender} | Né(e) le: {new Date(patient.dateOfBirth).toLocaleDateString('fr-FR')} | ID: {patient.identifier} | {patient.referringDoctor}
-                 </p>
+                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-slate-500 mt-2">
+                    <div className="flex items-center gap-1.5">
+                        <UserIcon className="w-4 h-4 text-slate-400"/>
+                        <span>{patient.gender}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <CalendarDaysIcon className="w-4 h-4 text-slate-400"/>
+                        <span>Né(e) le: {new Date(patient.dateOfBirth).toLocaleDateString('fr-FR')}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-slate-600">ID:</span>
+                        <span>{patient.identifier}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <AcademicCapIcon className="w-4 h-4 text-slate-400"/>
+                        <span>{patient.referringDoctor}</span>
+                    </div>
+                </div>
             </div>
 
             <div className="flex flex-wrap justify-between items-center mb-4 gap-4">

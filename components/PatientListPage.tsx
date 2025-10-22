@@ -529,7 +529,7 @@ const PatientListPage: React.FC<PatientListPageProps> = ({ onSelectPatient, onNe
                                         <UserIcon className="w-4 h-4 text-slate-400 shrink-0" />
                                         <span title={`${age} ans`}>{age} ans</span>
                                     </div>
-                                    <div className="flex items-center gap-1.5 truncate">
+                                    <div className="flex items-center gap-1.5">
                                         <AcademicCapIcon className="w-4 h-4 text-slate-400 shrink-0" />
                                         <span title={p.referringDoctor}>{p.referringDoctor}</span>
                                     </div>
