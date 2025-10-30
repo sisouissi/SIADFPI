@@ -78,9 +78,9 @@ export const checklistSections: ChecklistSection[] = [
         title: '5. TEST DE MARCHE DE 6 MINUTES',
         weight: 8,
         items: [
-            { id: 'spo2_baseline', label: 'SpO2 de base', critical: true, checker: (formData) => isFilledNumber(formData.examens.tm6.spo2Baseline) },
-            { id: 'spo2_min', label: 'SpO2 minimale', critical: true, checker: (formData) => isFilledNumber(formData.examens.tm6.spo2Min) },
-            { id: 'desaturation', label: 'Présence de désaturation', critical: true, checker: (formData) => isFilledNumber(formData.examens.tm6.spo2Baseline) && isFilledNumber(formData.examens.tm6.spo2Min) },
+            { id: 'spo2_baseline', label: 'SpO2 de base', critical: false, checker: (formData) => isFilledNumber(formData.examens.tm6.spo2Baseline) },
+            { id: 'spo2_min', label: 'SpO2 minimale', critical: false, checker: (formData) => isFilledNumber(formData.examens.tm6.spo2Min) },
+            { id: 'desaturation', label: 'Présence de désaturation', critical: false, checker: (formData) => isFilledNumber(formData.examens.tm6.spo2Baseline) && isFilledNumber(formData.examens.tm6.spo2Min) },
         ]
     },
     {
