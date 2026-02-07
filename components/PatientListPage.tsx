@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { db, searchPatients, deletePatient, exportData, importData, BackupData, getAllDataForExport, INITIAL_DMD_FORM_DATA, importSinglePatient, PatientWithConsultations } from '../services/db';
 import { Patient } from '../types';
-import { MagnifyingGlassIcon, UsersIcon, DocumentArrowUpIcon, ExclamationTriangleIcon, UserIcon, AcademicCapIcon, CalendarDaysIcon } from '../constants';
+import { MagnifyingGlassIcon, UsersIcon, DocumentArrowUpIcon, ExclamationTriangleIcon, UserIcon, AcademicCapIcon, CalendarDaysIcon, PencilSquareIcon } from '../constants';
 import * as XLSX from 'xlsx';
 import { decryptData } from '../services/cryptoService';
 import Modal from './Modal';
@@ -99,6 +99,7 @@ const ImportPatientModal: React.FC<ImportPatientModalProps> = ({ isOpen, onClose
 interface PatientListPageProps {
   onSelectPatient: (patientId: number) => void;
   onNewPatient: () => void;
+  onEditPatient: (patientId: number) => void;
 }
 
 const calculateAge = (dateOfBirth: string): number => {
@@ -118,7 +119,7 @@ const calculateAge = (dateOfBirth: string): number => {
     }
 };
 
-const PatientListPage: React.FC<PatientListPageProps> = ({ onSelectPatient, onNewPatient }) => {
+const PatientListPage: React.FC<PatientListPageProps> = ({ onSelectPatient, onNewPatient, onEditPatient }) => {
   const [allMatchingPatients, setAllMatchingPatients] = useState<Patient[]>([]);
   const [lastConsultationDates, setLastConsultationDates] = useState<Map<number, Date>>(new Map());
   const [currentPage, setCurrentPage] = useState(1);
@@ -174,6 +175,13 @@ const PatientListPage: React.FC<PatientListPageProps> = ({ onSelectPatient, onNe
   const handleDeleteClick = (e: React.MouseEvent, patient: Patient) => {
     e.stopPropagation();
     setPatientToDelete(patient);
+  };
+
+  const handleEditClick = (e: React.MouseEvent, patient: Patient) => {
+    e.stopPropagation();
+    if (patient.id) {
+        onEditPatient(patient.id);
+    }
   };
   
   const handleConfirmDelete = async () => {
@@ -540,13 +548,24 @@ const PatientListPage: React.FC<PatientListPageProps> = ({ onSelectPatient, onNe
                                 </div>
                             </div>
                         </div>
-                        <button 
+                        <div className="flex items-center gap-2 ml-2">
+                            <button
+                                onClick={(e) => handleEditClick(e, p)}
+                                className="p-2 text-slate-400 hover:text-amber-600 rounded-full hover:bg-amber-100 transition-colors"
+                                aria-label="Modifier la fiche patient"
+                                title="Modifier la fiche patient"
+                            >
+                                <PencilSquareIcon />
+                            </button>
+                            <button 
                                 onClick={(e) => handleDeleteClick(e, p)}
-                                className="p-2 ml-2 text-slate-400 hover:text-red-500 rounded-full hover:bg-red-100 transition-colors"
+                                className="p-2 text-slate-400 hover:text-red-500 rounded-full hover:bg-red-100 transition-colors"
                                 aria-label="Supprimer ce patient"
+                                title="Supprimer ce patient"
                             >
                                 <TrashIcon />
                             </button>
+                        </div>
                         </div>
                     </li>
                 );

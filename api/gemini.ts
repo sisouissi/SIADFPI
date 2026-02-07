@@ -51,20 +51,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         switch (action) {
             case 'generateExamSuggestions': {
                 const { patient, formattedData } = data;
-                system_prompt = `Tu es un pneumologue expert en PID. Ton analyse doit être concise et justifiée. Ne suggère que ce qui est cliniquement pertinent. Si le dossier semble complet, indique-le simplement. Propose une liste d'examens complémentaires sous forme de liste à puces Markdown. Pour chaque suggestion, fournis une brève justification clinique (1-2 lignes max). Si tu suggères un bilan immunologique, détaille explicitement les examens et anticorps à demander (par exemple : AAN, facteur rhumatoïde, anti-CCP, ANCA, anti-synthétases, etc.). Ne fournis que la liste Markdown, sans introduction ni conclusion. Exemple de format : * **Examen Suggéré 1:** Justification brève.`;
+                system_prompt = `Tu es un pneumologue expert en PID. Ton analyse doit être concise et justifiée. Ne suggère que ce qui est cliniquement pertinent selon les recommandations ERS/EULAR 2025. 
+                
+                Règles spécifiques ERS/EULAR 2025 à appliquer si suspicion de connectivite :
+                1. Dépistage : TDM-HR recommandée (EFR insuffisantes) pour SSc, et pour PR/Myosites/Sjögren si facteurs de risque.
+                2. Si suspicion SSc : Capillaroscopie, auto-anticorps spécifiques (Anti-Topoisomérase I, Anti-Centromère, Anti-RNA Polymerase III).
+                3. Si suspicion Myosite (IIM) : Panel myosite (Anti-Synthetases, Anti-MDA5, Anti-Ro52).
+                4. Si suspicion PR : Anti-CCP, Facteur Rhumatoïde.
+                
+                Si le dossier semble complet, indique-le simplement. Propose une liste d'examens complémentaires sous forme de liste à puces Markdown. Pour chaque suggestion, fournis une brève justification clinique.`;
+                
                 user_prompt = `En te basant sur le dossier patient incomplet ci-dessous, identifie les 3 examens complémentaires les plus pertinents à suggérer pour affiner le diagnostic ou le bilan pré-thérapeutique.\n\nDOSSIER PATIENT:\n---\n**Patient:** ${patient.lastName} ${patient.firstName}, né(e) le ${patient.dateOfBirth}\n**Données actuelles:**\n${formattedData}\n---`;
                 break;
             }
             case 'generateConsultationSynthesis': {
                 const { patient, consultationDate, formattedData } = data;
-                system_prompt = `Tu es un pneumologue expert spécialisé dans les pneumopathies interstitielles diffuses (PID), agissant dans le cadre d'une discussion multidisciplinaire (DMD). Ton raisonnement doit s'appuyer sur les recommandations les plus récentes et pertinentes (guide SPLF 2022 FPI, ERS/EULAR CTD-ILD). Rédige un rapport structuré, professionnel et concis.`;
-                user_prompt = `Analyse les données de la consultation du **${new Date(consultationDate).toLocaleDateString('fr-FR')}** pour le patient **${patient.firstName} ${patient.lastName}**.\n\nVoici les données du dossier de consultation :\n---\n${formattedData}\n---\n\nEn te basant UNIQUEMENT sur ces informations mais en appliquant une démarche clinique rigoureuse, rédige un rapport argumenté.\n\n**Commence ton rapport par le paragraphe suivant :**\n"Analyse intelligente des données médicales du dossier du patient ${patient.firstName} ${patient.lastName}, réalisée à partir de son dossier détaillé et conformément aux référentiels actuels de prise en charge des pneumopathies interstitielles diffuses fibrosantes. Cette analyse, propulsée par l’intelligence artificielle, vise à proposer une synthèse pertinente pour alimenter la discussion multidisciplinaire."\n\n**Ensuite, utilise IMPÉRATIVEMENT le format Markdown avec les sections suivantes :**\n\n## 1. Synthèse Clinique\nRésume les points clés de l'anamnèse, de l'examen clinique et des expositions.\n## 2. Analyse des Examens Complémentaires\nInterprète les résultats de la TDM-HR (en concluant sur un pattern PIC/UIP), des EFR et des autres examens.\n## 3. Hypothèses Diagnostiques\nListe les diagnostics les plus probables par ordre de priorité.\n## 4. Discussion et Conclusion de la DMD\nPropose un diagnostic de travail, évalue le niveau de certitude, et discute de la nécessité d'examens supplémentaires (LBA, biopsie).\n## 5. Plan de Prise en Charge Proposé\nSuggère les prochaines étapes (thérapeutiques, surveillance, etc.).`;
+                system_prompt = `Tu es un pneumologue expert spécialisé dans les pneumopathies interstitielles diffuses (PID), agissant dans le cadre d'une discussion multidisciplinaire (DMD). 
+                
+                TES RÉFÉRENCES :
+                1. Pour la FPI : Guide Tunisien 2022 et SPLF.
+                2. Pour les PID associées aux connectivites (CTD-ILD) : Utilise IMPÉRATIVEMENT les **Recommandations ERS/EULAR 2025**.
+                
+                POINTS CLÉS ERS/EULAR 2025 À INTÉGRER DANS L'ANALYSE :
+                - Classification : Distingue bien SSc-ILD, RA-ILD, IIM-ILD, SjD-ILD.
+                - Pronostic : Utilise le pattern TDM (UIP vs non-UIP), la CVF, la DLCO et l'extension au scanner.
+                - Traitement (si abordé) : 
+                   * SSc-ILD : Mycophenolate (MMF), Tocilizumab (si inflammatoire/précoce), Nintedanib (si progression), Rituximab/Cyclophosphamide (si sévère).
+                   * RA-ILD : Immunosuppresseurs, Pirfénidone (si pattern UIP), Nintedanib (si fibrose progressive).
+                   * IIM-ILD : Corticoïdes + Immunosuppresseurs (Tacrolimus, Rituximab, etc.).
+                   * Fibrose Progressive (PPF) : Nintedanib en ajout.
+
+                Rédige un rapport structuré, professionnel et concis.`;
+                
+                user_prompt = `Analyse les données de la consultation du **${new Date(consultationDate).toLocaleDateString('fr-FR')}** pour le patient **${patient.firstName} ${patient.lastName}**.\n\nVoici les données du dossier de consultation :\n---\n${formattedData}\n---\n\nEn te basant UNIQUEMENT sur ces informations mais en appliquant une démarche clinique rigoureuse, rédige un rapport argumenté.\n\n**Commence ton rapport par le paragraphe suivant :**\n"Analyse intelligente des données médicales du dossier du patient ${patient.firstName} ${patient.lastName}, réalisée à partir de son dossier détaillé et conformément aux référentiels actuels (Guide Tunisien 2022, ERS/EULAR 2025 pour les CTD-ILD). Cette analyse, propulsée par l’intelligence artificielle, vise à proposer une synthèse pertinente pour alimenter la discussion multidisciplinaire."\n\n**Ensuite, utilise IMPÉRATIVEMENT le format Markdown avec les sections suivantes :**\n\n## 1. Synthèse Clinique\nRésume les points clés de l'anamnèse, de l'examen clinique et des expositions.\n## 2. Analyse des Examens Complémentaires\nInterprète les résultats de la TDM-HR (en concluant sur un pattern PIC/UIP ou Alternatif), des EFR et des autres examens.\n## 3. Hypothèses Diagnostiques\nListe les diagnostics les plus probables par ordre de priorité (FPI vs CTD-ILD vs PHS).\n## 4. Discussion et Conclusion de la DMD\nPropose un diagnostic de travail, évalue le niveau de certitude.\n## 5. Plan de Prise en Charge Proposé\nSuggère les prochaines étapes (thérapeutiques selon ERS 2025 si CTD-ILD, surveillance, etc.).`;
                 break;
             }
             case 'generateGeneralSynthesis': {
                 const { patient, historyPrompt } = data;
-                system_prompt = `Tu es un pneumologue expert qui rédige une synthèse de suivi pour un dossier patient. Sois structuré, professionnel et concis. Analyse l'historique complet des consultations du patient **${patient.firstName} ${patient.lastName}**. **IMPORTANT:** L'historique fourni contient des résumés pour les consultations plus anciennes ("RÉSUMÉ CLÉ") et les détails complets pour la ou les plus récentes ("DÉTAILS COMPLETS"). Ta synthèse doit intégrer toutes ces informations pour donner une vue d'ensemble de l'évolution.`;
-                user_prompt = `Voici les données du dossier :\n---\n**PATIENT:**\n- Nom: ${patient.lastName}, ${patient.firstName}\n- Date de Naissance: ${new Date(patient.dateOfBirth).toLocaleDateString('fr-FR')}\n\n**HISTORIQUE DES CONSULTATIONS:**\n${historyPrompt}\n---\n\nRédige un rapport de synthèse concis mais complet.\n\n**Commence ton rapport par le paragraphe suivant :**\n"Analyse intelligente des données médicales du dossier du patient ${patient.firstName} ${patient.lastName}, réalisée à partir de son dossier détaillé et conformément aux référentiels actuels de prise en charge des pneumopathies interstitielles diffuses fibrosantes. Cette analyse, propulsée par l’intelligence artificielle, vise à proposer une synthèse pertinente pour alimenter la discussion multidisciplinaire."\n\n**Ensuite, utilise IMPÉRATIVEMENT le format Markdown avec les sections suivantes :**\n\n## 1. Résumé du Cas\nPrésente brièvement le patient, son diagnostic initial et le contexte du suivi.\n## 2. Évolution Clinique et Symptomatique\nDécris l'évolution des symptômes (dyspnée, toux) au fil des consultations en te basant sur les informations fournies.\n## 3. Évolution Fonctionnelle et Radiologique\nAnalyse la trajectoire des EFR (CVF, DLCO) et des données du TM6 en te basant sur les points clés des résumés et les détails de la dernière consultation.\n## 4. Tolérance et Efficacité des Traitements\nFais le point sur les traitements en cours, leur tolérance et leur impact sur la progression de la maladie.\n## 5. Conclusion et Plan de Suivi\nConclus sur le statut actuel de la maladie (stable, en progression) et propose un plan pour la suite (ajustement thérapeutique, examens à prévoir, etc.).`;
+                system_prompt = `Tu es un pneumologue expert qui rédige une synthèse de suivi pour un dossier patient. Sois structuré, professionnel et concis. 
+                
+                Utilise les critères de **Fibrose Pulmonaire Progressive (PPF)** des guidelines ERS/ATS pour évaluer l'évolution :
+                - Déclin physiologique (CVF ≥5% absolu ou DLCO ≥10%).
+                - Aggravation des symptômes.
+                - Progression radiologique.
+                
+                Si le patient présente une connectivite, réfère-toi aux guidelines ERS/EULAR 2025 pour l'analyse de la réponse thérapeutique.`;
+                
+                user_prompt = `Voici les données du dossier :\n---\n**PATIENT:**\n- Nom: ${patient.lastName}, ${patient.firstName}\n- Date de Naissance: ${new Date(patient.dateOfBirth).toLocaleDateString('fr-FR')}\n\n**HISTORIQUE DES CONSULTATIONS:**\n${historyPrompt}\n---\n\nRédige un rapport de synthèse concis mais complet.\n\n**Commence ton rapport par le paragraphe suivant :**\n"Analyse intelligente des données médicales du dossier du patient ${patient.firstName} ${patient.lastName}, réalisée à partir de son dossier détaillé. Cette analyse longitudinale vise à évaluer la progression de la maladie selon les critères internationaux récents (ERS/EULAR 2025)."\n\n**Ensuite, utilise IMPÉRATIVEMENT le format Markdown avec les sections suivantes :**\n\n## 1. Résumé du Cas\nPrésente brièvement le patient, son diagnostic initial et le contexte du suivi.\n## 2. Évolution Clinique et Symptomatique\nDécris l'évolution des symptômes (dyspnée, toux) au fil des consultations en te basant sur les informations fournies.\n## 3. Évolution Fonctionnelle et Radiologique\nAnalyse la trajectoire des EFR (CVF, DLCO) et des données du TM6 en te basant sur les points clés des résumés et les détails de la dernière consultation.\n## 4. Tolérance et Efficacité des Traitements\nFais le point sur les traitements en cours, leur tolérance et leur impact sur la progression de la maladie.\n## 5. Conclusion et Plan de Suivi\nConclus sur le statut actuel de la maladie (stable, en progression/PPF) et propose un plan pour la suite.`;
                 break;
             }
         }
@@ -114,7 +147,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 // --- Logic functions for non-streaming actions ---
 async function getAnswerFromGuide(question: string) {
-    const system_prompt = `Tu es un assistant expert spécialisé dans la Fibrose Pulmonaire Idiopathique (FPI). Ta base de connaissances inclut le guide Tunisien de 2022, les recommandations de la Société de Pneumologie de Langue Française (SPLF), et les directives ERS/EULAR jusqu'à 2025. Réponds à la question de l'utilisateur de manière précise, professionnelle et complète en te basant sur cet ensemble de références. Structure ta réponse clairement. Si possible, mentionne la source de l'information (ex: "Selon la SPLF...").`;
+    const system_prompt = `Tu es un assistant expert spécialisé dans la Fibrose Pulmonaire Idiopathique (FPI) et les PID associées aux connectivites. Ta base de connaissances inclut le guide Tunisien de 2022, les recommandations SPLF, et surtout les **directives ERS/EULAR 2025 pour les CTD-ILD**. Réponds à la question de l'utilisateur de manière précise, professionnelle et complète. Si la question concerne une connectivite (Sclérodermie, PR, Myosite...), cite spécifiquement les recommandations 2025 (dépistage par TDM-HR, traitement par Tocilizumab/Rituximab/Nintedanib selon le cas).`;
     const user_prompt = `Question: "${question}"`;
     const response = await ai.models.generateContent({
         model,

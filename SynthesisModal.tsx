@@ -27,9 +27,19 @@ const SynthesisModal: React.FC<SynthesisModalProps> = ({ isOpen, onClose, patien
                 setIsLoading(true);
                 setError(null);
                 setReport(null);
+                let fullReport = '';
                 try {
-                    const result = await generateConsultationSynthesis(patient, consultation);
-                    if (result.startsWith("Impossible de contacter")) {
+                    await generateConsultationSynthesis(
+                        patient,
+                        consultation,
+                        (chunk) => {
+                            fullReport += chunk;
+                            setReport(fullReport);
+                        }
+                    );
+                    
+                    const result = fullReport;
+                    if (result && result.startsWith("Impossible de contacter")) {
                         throw new Error(result);
                     }
                     const cleanedResult = result.includes('---') ? result.split('---').slice(1).join('---').trim() : result;

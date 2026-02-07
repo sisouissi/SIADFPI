@@ -36,9 +36,19 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
                 setIsLoading(true);
                 setError(null);
                 setReport(null);
+                let fullReport = '';
                 try {
-                    const result = await generateGeneralSynthesis(patient, consultations);
-                     if (result.startsWith("Impossible de contacter")) {
+                    await generateGeneralSynthesis(
+                        patient,
+                        consultations,
+                        (chunk) => {
+                            fullReport += chunk;
+                            setReport(fullReport);
+                        }
+                    );
+                    
+                    const result = fullReport;
+                    if (result && result.startsWith("Impossible de contacter")) {
                         throw new Error(result);
                     }
                     const cleanedResult = result.includes('---') ? result.split('---').slice(1).join('---').trim() : result;

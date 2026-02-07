@@ -120,12 +120,33 @@ const DiagnosisPage: React.FC = () => {
                         </ul>
                     </Accordion>
                     <Accordion title="4. Diagnostic Alternatif">
-                        <p>Ce pattern regroupe les signes qui sont <strong>incompatibles</strong> avec un diagnostic de FPI et orientent fortement vers une autre pathologie (ex: PHS, PINS, connectivite...).</p>
+                        <p>Ce pattern regroupe les signes qui sont <strong>incompatibles</strong> avec un diagnostic de FPI et orientent fortement vers une autre pathologie (ex: PHS, PINS, connectivite, amylose...).</p>
                         <ul className="list-disc list-inside space-y-2 mt-2">
                             <li><strong>Anomalies prédominantes :</strong> <strong>Verre dépoli</strong> étendu <ViewImageButton onClick={() => openImageModal('groundGlass')} />, <strong>consolidations</strong>, <strong>nodules centro-lobulaires</strong> profus.</li>
                             <li><strong>Autres signes évocateurs :</strong> <strong>Kystes</strong> multiples (différents du rayon de miel), <strong>atténuation en mosaïque</strong> marquée (piégeage aérique).</li>
                             <li><strong>Distribution atypique :</strong> Prédominance aux <strong>lobes supérieurs</strong> ou <strong>péribronchovasculaire</strong>.</li>
                         </ul>
+                        
+                        <div className="mt-4 pt-4 border-t border-slate-200">
+                            <h5 className="font-semibold text-slate-800 mb-2">Examens utiles à suggérer selon l'orientation diagnostique :</h5>
+                            <ul className="space-y-2 text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                <li>
+                                    <span className="font-bold text-accent-blue">Amylose :</span> Biopsie des glandes salivaires accessoires (BGSA), ponction de graisse abdominale, immunofixation des protéines sériques et urinaires.
+                                </li>
+                                <li>
+                                    <span className="font-bold text-accent-blue">Pneumopathie d'Hypersensibilité (PHS) :</span> Lavage Broncho-Alvéolaire (LBA) pour recherche d'une lymphocytose (&gt;20-30%), dosage des précipitines sériques, enquête environnementale rigoureuse.
+                                </li>
+                                <li>
+                                    <span className="font-bold text-accent-blue">Connectivites :</span> Bilan immunologique étendu (Dot myosites, anti-Scl70, anti-SSA/SSB...), capillaroscopie péri-unguéale.
+                                </li>
+                                <li>
+                                    <span className="font-bold text-accent-blue">Sarcoïdose :</span> Biopsies étagées (bronchiques, ganglionnaires), dosage de l'enzyme de conversion (ECA), bilan phosphocalcique.
+                                </li>
+                                <li>
+                                    <span className="font-bold text-accent-blue">Pneumopathie Organisée Cryptogénique (POC) :</span> LBA (profil panaché), scanner souvent évocateur (condensations migratrices), diagnostic d'exclusion.
+                                </li>
+                            </ul>
+                        </div>
                     </Accordion>
                 </InfoCapsule>
                 <InfoCapsule title="Diagnostic d'Élimination" icon={ShieldExclamationIcon} className="md:col-span-2">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { addPatient, getPatientWithConsultations, addConsultation, updateConsultation, deleteConsultation, INITIAL_DMD_FORM_DATA, PatientWithConsultations } from '../services/db';
+import { addPatient, updatePatient, getPatientWithConsultations, addConsultation, updateConsultation, deleteConsultation, INITIAL_DMD_FORM_DATA, PatientWithConsultations } from '../services/db';
 import { Patient, Consultation } from '../types';
 import DMDFormComponent from './DMDFormComponent';
 import SynthesisModal from './SynthesisModal';
@@ -72,12 +72,13 @@ const ExportPatientModal: React.FC<ExportPatientModalProps> = ({ isOpen, onClose
 interface PatientDetailPageProps {
   patientId: number | null;
   onBack: () => void;
+  initialEditMode?: boolean;
 }
 
-const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId, onBack }) => {
+const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId, onBack, initialEditMode = false }) => {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [consultations, setConsultations] = useState<Consultation[]>([]);
-  const [isEditingPatient, setIsEditingPatient] = useState(!patientId);
+  const [isEditingPatient, setIsEditingPatient] = useState(initialEditMode || !patientId);
   const [currentConsultation, setCurrentConsultation] = useState<Consultation | null>(null);
   const [isSynthesisModalOpen, setIsSynthesisModalOpen] = useState(false);
   const [isGeneralSynthesisModalOpen, setIsGeneralSynthesisModalOpen] = useState(false);
@@ -100,6 +101,13 @@ const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId, onBack
     loadPatientData();
   }, [loadPatientData]);
 
+  // Si on est en mode édition avec un patient déjà chargé, on doit s'assurer que le formulaire s'affiche
+  useEffect(() => {
+      if (initialEditMode) {
+          setIsEditingPatient(true);
+      }
+  }, [initialEditMode]);
+
   const handlePatientSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -113,9 +121,11 @@ const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId, onBack
     };
     
     if (patient && patient.id) {
-      // Update logic here if needed in the future
+        await updatePatient({ ...patient, ...newPatientData });
+        setIsEditingPatient(false);
+        await loadPatientData();
     } else {
-      const newId = await addPatient(newPatientData);
+      await addPatient(newPatientData);
       onBack(); // Go back to list to see the new patient
     }
   };
@@ -210,26 +220,34 @@ const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId, onBack
     } finally {
         setIsExporting(false);
     }
-};
+  };
+
+  const handleCancelEdit = () => {
+      if (patient && patient.id) {
+          setIsEditingPatient(false);
+      } else {
+          onBack();
+      }
+  };
 
 
-  if (isEditingPatient && !patient) {
+  if (isEditingPatient) {
     return (
       <div className="bg-white p-8 rounded-xl shadow-lg border border-slate-200">
-        <h2 className="text-2xl font-bold text-slate-800 mb-6">Nouveau Dossier Patient</h2>
+        <h2 className="text-2xl font-bold text-slate-800 mb-6">{patient ? 'Modifier le Dossier Patient' : 'Nouveau Dossier Patient'}</h2>
         <form onSubmit={handlePatientSave} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label htmlFor="lastName" className="block text-sm font-medium text-slate-600 mb-1">Nom</label>
-              <input type="text" id="lastName" name="lastName" required className="form-input w-full bg-slate-50 border-slate-300 rounded-md p-2" />
+              <input type="text" id="lastName" name="lastName" defaultValue={patient?.lastName} required className="form-input w-full bg-slate-50 border-slate-300 rounded-md p-2" />
             </div>
             <div>
               <label htmlFor="firstName" className="block text-sm font-medium text-slate-600 mb-1">Prénom</label>
-              <input type="text" id="firstName" name="firstName" required className="form-input w-full bg-slate-50 border-slate-300 rounded-md p-2" />
+              <input type="text" id="firstName" name="firstName" defaultValue={patient?.firstName} required className="form-input w-full bg-slate-50 border-slate-300 rounded-md p-2" />
             </div>
              <div>
               <label htmlFor="gender" className="block text-sm font-medium text-slate-600 mb-1">Sexe</label>
-              <select id="gender" name="gender" required className="form-select w-full bg-slate-50 border-slate-300 rounded-md p-2">
+              <select id="gender" name="gender" defaultValue={patient?.gender} required className="form-select w-full bg-slate-50 border-slate-300 rounded-md p-2">
                 <option value="">Sélectionner...</option>
                 <option value="Homme">Homme</option>
                 <option value="Femme">Femme</option>
@@ -237,19 +255,19 @@ const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId, onBack
             </div>
             <div>
               <label htmlFor="dateOfBirth" className="block text-sm font-medium text-slate-600 mb-1">Date de Naissance</label>
-              <input type="date" id="dateOfBirth" name="dateOfBirth" required className="form-input w-full bg-slate-50 border-slate-300 rounded-md p-2" />
+              <input type="date" id="dateOfBirth" name="dateOfBirth" defaultValue={patient?.dateOfBirth} required className="form-input w-full bg-slate-50 border-slate-300 rounded-md p-2" />
             </div>
             <div>
               <label htmlFor="identifier" className="block text-sm font-medium text-slate-600 mb-1">Identifiant (N° dossier)</label>
-              <input type="text" id="identifier" name="identifier" required className="form-input w-full bg-slate-50 border-slate-300 rounded-md p-2" />
+              <input type="text" id="identifier" name="identifier" defaultValue={patient?.identifier} required className="form-input w-full bg-slate-50 border-slate-300 rounded-md p-2" />
             </div>
              <div>
               <label htmlFor="referringDoctor" className="block text-sm font-medium text-slate-600 mb-1">Médecin Référent</label>
-              <input type="text" id="referringDoctor" name="referringDoctor" required placeholder="Dr. Prénom NOM" className="form-input w-full bg-slate-50 border-slate-300 rounded-md p-2" />
+              <input type="text" id="referringDoctor" name="referringDoctor" defaultValue={patient?.referringDoctor} required placeholder="Dr. Prénom NOM" className="form-input w-full bg-slate-50 border-slate-300 rounded-md p-2" />
             </div>
           </div>
           <div className="flex justify-end gap-4 pt-4">
-            <button type="button" onClick={onBack} className="px-6 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200">Annuler</button>
+            <button type="button" onClick={handleCancelEdit} className="px-6 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200">Annuler</button>
             <button type="submit" className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-br from-sky-500 to-accent-blue text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-sky-300 focus:ring-opacity-50">Enregistrer</button>
           </div>
         </form>

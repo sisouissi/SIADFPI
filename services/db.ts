@@ -136,6 +136,17 @@ export const addPatient = async (patient: Omit<Patient, 'id' | 'createdAt' | 'up
     return db.patients.add(newPatient as Patient);
 };
 
+export const updatePatient = async (patient: Patient): Promise<number> => {
+    if (!patient.id) {
+        throw new Error("Patient ID is required for update.");
+    }
+    const updatedPatient = {
+        ...patient,
+        updatedAt: new Date(),
+    };
+    return db.patients.update(patient.id, updatedPatient);
+};
+
 export const getPatientWithConsultations = async (patientId: number): Promise<{ patient: Patient; consultations: Consultation[] } | null> => {
     const patient = await db.patients.get(patientId);
     if (!patient) return null;

@@ -70,7 +70,6 @@ export const checklistSections: ChecklistSection[] = [
             { id: 'fvc', label: 'CVF (% théorique)', critical: true, checker: (formData) => isFilledNumber(formData.examens.efr.cvfPercent) },
             { id: 'dlco', label: 'DLCO (% théorique)', critical: true, checker: (formData) => isFilledNumber(formData.examens.efr.dlcoPercent) },
             { id: 'tlc', label: 'CPT (% théorique)', critical: true, checker: (formData) => isFilledNumber(formData.examens.efr.cptPercent) },
-            { id: 'pattern_interpretation', label: 'Interprétation du pattern', critical: true, checker: (formData) => isNonEmptyString(formData.examens.efr.efrInterpretation) },
         ]
     },
     {

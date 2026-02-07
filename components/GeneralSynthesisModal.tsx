@@ -6,7 +6,6 @@ import { generateGeneralSynthesis } from '../services/geminiService';
 import { parseMarkdown } from '../services/markdownParser';
 import { ExclamationTriangleIcon, PaperAirplaneIcon } from '../constants';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 
 interface GeneralSynthesisModalProps {
     isOpen: boolean;
@@ -26,6 +25,8 @@ const CustomizedLabel: React.FC<any> = (props) => {
 const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, onClose, patient, consultations }) => {
     const [report, setReport] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [isSharing, setIsSharing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const printableAreaRef = useRef<HTMLDivElement>(null);
 
@@ -37,16 +38,20 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
                 setReport(null);
                 let fullReport = '';
                 try {
-                    // FIX: Use the streaming version of generateGeneralSynthesis by providing a callback to accumulate chunks.
-                    await generateGeneralSynthesis(patient, consultations, (chunk: string) => {
-                        fullReport += chunk;
-                        setReport(fullReport);
-                    });
-
-                    if (fullReport.startsWith("Impossible de contacter")) {
-                        throw new Error(fullReport);
+                    await generateGeneralSynthesis(
+                        patient, 
+                        consultations,
+                        (chunk) => {
+                            fullReport += chunk;
+                            setReport(fullReport);
+                        }
+                    );
+                    
+                    const result = fullReport;
+                    if (result && result.startsWith("Impossible de contacter")) {
+                        throw new Error(result);
                     }
-                    const cleanedResult = fullReport.includes('---') ? fullReport.split('---').slice(1).join('---').trim() : fullReport;
+                    const cleanedResult = result.includes('---') ? result.split('---').slice(1).join('---').trim() : result;
                     setReport(cleanedResult);
                 } catch (err) {
                     setError(err instanceof Error ? err.message : 'Une erreur inconnue est survenue.');
@@ -82,43 +87,86 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
     })();
 
     const handlePrint = () => {
-        const contentToPrint = printableAreaRef.current;
-        if (!contentToPrint) return;
-
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-            printWindow.document.write('<html><head><title>Synthèse Générale du Dossier Patient</title>');
-            printWindow.document.write(`<style>
-                @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
-                @page { 
-                    margin: 1.5cm;
-                    @bottom-center {
-                        content: "Page " counter(page) " / " counter(pages);
-                        font-size: 9pt;
-                        color: #808080;
-                    }
-                }
-                body { font-family: 'Poppins', sans-serif; line-height: 1.6; color: #334155; margin: 0; }
-                h1, h2, h3, h4 { color: #0F172A; } h3 { border-bottom: 1px solid #E2E8F0; padding-bottom: 0.5rem; margin-top: 1.5rem; } 
-                .recharts-wrapper { margin: 0 auto; max-width: 100%; }
-                @media print { 
-                    body { -webkit-print-color-adjust: exact; }
-                    .no-print { display: none; }
-                    h1, h2, h3, h4, h5, h6 { page-break-after: avoid; }
-                    p, ul, table, .recharts-wrapper { page-break-inside: avoid; }
-                }
-            </style>`);
-            printWindow.document.write('</head><body>');
-            printWindow.document.write(contentToPrint.innerHTML);
-            printWindow.document.write('</body></html>');
-            printWindow.document.close();
-            printWindow.focus();
-            setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
+        const contentToPrint = printableAreaRef.current?.innerHTML;
+        if (contentToPrint && patient) {
+            const printWindow = window.open('', '_blank', 'height=800,width=800');
+            if (printWindow) {
+                printWindow.document.write('<html><head><title>Synthèse Générale du Dossier Patient</title>');
+                printWindow.document.write(`<style> @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap'); body { font-family: 'Poppins', sans-serif; line-height: 1.6; color: #334155; margin: 2rem; } h1, h2, h3 { color: #0F172A; } h3 { border-bottom: 1px solid #E2E8F0; padding-bottom: 0.5rem; margin-top: 1.5rem; } .recharts-wrapper { margin: 0 auto; } @media print { body { -webkit-print-color-adjust: exact; } } </style>`);
+                printWindow.document.write('</head><body>');
+                printWindow.document.write(contentToPrint);
+                printWindow.document.write('</body></html>');
+                printWindow.document.close();
+                printWindow.focus();
+                setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
+            }
         }
     };
-    
-    const handleDownloadPdf = () => {
-        handlePrint();
+
+    const generatePdfBlob = (): Promise<Blob> => {
+        return new Promise((resolve) => {
+            const element = printableAreaRef.current;
+            if (!element) return;
+            const pdf = new jsPDF('p', 'pt', 'a4');
+            pdf.html(element, {
+                callback: (doc) => {
+                    resolve(doc.output('blob'));
+                },
+                x: 15,
+                y: 15,
+                width: 565,
+                windowWidth: element.scrollWidth,
+                html2canvas: { scale: 0.75, useCORS: true }
+            });
+        });
+    };
+
+    const handleDownloadPdf = async () => {
+        if (!patient) return;
+        setIsDownloading(true);
+        const blob = await generatePdfBlob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const date = new Date().toISOString().slice(0, 10);
+        a.download = `synthese-generale-${patient.lastName}-${date}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setIsDownloading(false);
+    };
+
+    const handleShare = async () => {
+        if (!navigator.share || !patient) {
+            alert("La fonction de partage n'est pas supportée sur ce navigateur.");
+            return;
+        }
+
+        setIsSharing(true);
+        try {
+            const blob = await generatePdfBlob();
+            const date = new Date().toISOString().slice(0, 10);
+            const filename = `synthese-generale-${patient.lastName}-${date}.pdf`;
+            const file = new File([blob], filename, { type: 'application/pdf' });
+
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    title: `Synthèse patient ${patient.lastName}`,
+                    text: `Ci-joint la synthèse du dossier pour ${patient.firstName} ${patient.lastName}.`,
+                    files: [file],
+                });
+            } else {
+                throw new Error("Impossible de partager ce type de fichier.");
+            }
+        } catch (error) {
+            console.error('Erreur de partage:', error);
+            if ( (error as Error).name !== 'AbortError') {
+                 alert(`Erreur de partage : ${(error as Error).message}`);
+            }
+        } finally {
+            setIsSharing(false);
+        }
     };
 
     return (
@@ -127,7 +175,7 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
             onClose={onClose}
             title="Synthèse Générale du Dossier Patient"
         >
-            {isLoading && !report && (
+            {isLoading && (
                 <div className="flex flex-col items-center justify-center min-h-[300px]">
                     <svg className="animate-spin h-10 w-10 text-purple-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -179,22 +227,31 @@ const GeneralSynthesisModal: React.FC<GeneralSynthesisModalProps> = ({ isOpen, o
                             </div>
                         )}
                     </div>
-                    {!isLoading && (
-                        <div className="mt-6 pt-6 border-t border-slate-200 flex flex-wrap justify-end gap-3 no-print">
+                    <div className="mt-6 pt-6 border-t border-slate-200 flex flex-wrap justify-end gap-3">
+                        <button
+                            onClick={handlePrint}
+                            className="px-4 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+                        >
+                            Imprimer
+                        </button>
+                        <button
+                            onClick={handleDownloadPdf}
+                            disabled={isDownloading}
+                            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-br from-sky-500 to-accent-blue text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-sky-300 focus:ring-opacity-50 disabled:opacity-50"
+                        >
+                            {isDownloading ? 'Téléchargement...' : 'Télécharger (PDF)'}
+                        </button>
+                        {navigator.share && (
                             <button
-                                onClick={handlePrint}
-                                className="px-4 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+                                onClick={handleShare}
+                                disabled={isSharing}
+                                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-br from-purple-500 to-violet-500 text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-purple-300 focus:ring-opacity-50 disabled:opacity-50"
                             >
-                                Imprimer
+                                <PaperAirplaneIcon className="w-5 h-5" />
+                                {isSharing ? 'Partage...' : 'Partager'}
                             </button>
-                            <button
-                                onClick={handleDownloadPdf}
-                                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-br from-sky-500 to-accent-blue text-white font-bold rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-sky-300 focus:ring-opacity-50"
-                            >
-                                Télécharger (PDF)
-                            </button>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </>
             )}
         </Modal>

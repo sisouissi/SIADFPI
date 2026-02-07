@@ -68,7 +68,7 @@ export interface EfrData {
   vemsPercent: number | '';
   dlcoValue: number | '';
   dlcoPercent: number | '';
-  efrInterpretation: 'Restrictif' | 'Mixte' | 'Normal' | 'Autre' | '';
+  efrInterpretation: 'Restrictif' | 'Obstructif' | 'Mixte' | 'Normal' | 'Autre' | '';
 }
 
 export interface Tm6Data {

@@ -9,19 +9,29 @@ const PatientRecordsPage: React.FC = () => {
   const [isUnlocked, setIsUnlocked] = useState(sessionStorage.getItem('patientRecordsUnlocked') === 'true');
   const [view, setView] = useState<View>('LIST');
   const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   const handleSelectPatient = useCallback((patientId: number) => {
     setSelectedPatientId(patientId);
+    setIsEditing(false);
     setView('DETAIL');
   }, []);
 
   const handleNewPatient = useCallback(() => {
     setSelectedPatientId(null);
+    setIsEditing(true);
+    setView('DETAIL');
+  }, []);
+
+  const handleEditPatient = useCallback((patientId: number) => {
+    setSelectedPatientId(patientId);
+    setIsEditing(true);
     setView('DETAIL');
   }, []);
 
   const handleBackToList = useCallback(() => {
     setSelectedPatientId(null);
+    setIsEditing(false);
     setView('LIST');
   }, []);
 
@@ -53,6 +63,7 @@ const PatientRecordsPage: React.FC = () => {
         <PatientListPage
           onSelectPatient={handleSelectPatient}
           onNewPatient={handleNewPatient}
+          onEditPatient={handleEditPatient}
         />
       )}
       
@@ -60,6 +71,7 @@ const PatientRecordsPage: React.FC = () => {
         <PatientDetailPage
           patientId={selectedPatientId}
           onBack={handleBackToList}
+          initialEditMode={isEditing}
         />
       )}
     </div>

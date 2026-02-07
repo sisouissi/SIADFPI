@@ -79,7 +79,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 async function handleExamSuggestionsStream(deepseek: OpenAI, data: any, res: VercelResponse) {
   const { patient, formattedData } = data;
 
-  const system_prompt = `Tu es un pneumologue expert en PID. Ton analyse doit être concise et justifiée. Ne suggère que ce qui est cliniquement pertinent. Si le dossier semble complet, indique-le simplement. Propose une liste d'examens complémentaires sous forme de liste à puces Markdown. Pour chaque suggestion, fournis une brève justification clinique (1-2 lignes max). Ne fournis que la liste Markdown, sans introduction ni conclusion. Exemple de format : * **Examen Suggéré 1:** Justification brève.`;
+  const system_prompt = `Tu es un pneumologue expert en PID. Ton analyse doit être concise et justifiée. Ne suggère que ce qui est cliniquement pertinent selon les recommandations ERS/EULAR 2025. 
+                
+  Règles spécifiques ERS/EULAR 2025 à appliquer si suspicion de connectivite :
+  1. Dépistage : TDM-HR recommandée (EFR insuffisantes) pour SSc, et pour PR/Myosites/Sjögren si facteurs de risque.
+  2. Si suspicion SSc : Capillaroscopie, auto-anticorps spécifiques.
+  3. Si suspicion Myosite (IIM) : Panel myosite (Anti-Synthetases, Anti-MDA5, Anti-Ro52).
+  4. Si suspicion PR : Anti-CCP, Facteur Rhumatoïde.
+  
+  Si le dossier semble complet, indique-le simplement. Propose une liste d'examens complémentaires sous forme de liste à puces Markdown. Pour chaque suggestion, fournis une brève justification clinique (1-2 lignes max). Ne fournis que la liste Markdown, sans introduction ni conclusion. Exemple de format : * **Examen Suggéré 1:** Justification brève.`;
+  
   const user_prompt = `En te basant sur le dossier patient incomplet ci-dessous, identifie les 3 examens complémentaires les plus pertinents à suggérer pour affiner le diagnostic ou le bilan pré-thérapeutique.
 
 DOSSIER PATIENT:
@@ -118,7 +127,7 @@ ${formattedData}
 }
 
 async function handleGetAnswer(deepseek: OpenAI, question: string) {
-  const system_prompt = `Tu es un assistant expert spécialisé dans la Fibrose Pulmonaire Idiopathique (FPI). Ta base de connaissances inclut le guide Tunisien de 2022, les recommandations de la Société de Pneumologie de Langue Française (SPLF), et les directives ERS/EULAR jusqu'à 2025. Réponds à la question de l'utilisateur de manière précise, professionnelle et complète en te basant sur cet ensemble de références. Structure ta réponse clairement. Si possible, mentionne la source de l'information (ex: "Selon la SPLF...").`;
+  const system_prompt = `Tu es un assistant expert spécialisé dans la Fibrose Pulmonaire Idiopathique (FPI) et les PID associées aux connectivites. Ta base de connaissances inclut le guide Tunisien de 2022, les recommandations SPLF, et les **directives ERS/EULAR 2025 pour les CTD-ILD**. Réponds à la question de l'utilisateur de manière précise, professionnelle et complète en te basant sur cet ensemble de références. Structure ta réponse clairement. Si possible, mentionne la source de l'information (ex: "Selon les recommandations ERS 2025...").`;
   const user_prompt = `Question: "${question}"`;
 
   const chatCompletion = await deepseek.chat.completions.create({
@@ -134,7 +143,18 @@ async function handleGetAnswer(deepseek: OpenAI, question: string) {
 async function handleConsultationSynthesis(deepseek: OpenAI, data: any) {
   const { patient, consultation, formattedData } = data;
   
-  const system_prompt = `Tu es un pneumologue expert spécialisé dans les pneumopathies interstitielles diffuses (PID), agissant dans le cadre d'une discussion multidisciplinaire (DMD). Ton raisonnement doit s'appuyer sur les recommandations les plus récentes et pertinentes (guide SPLF 2022 FPI, ERS/EULAR CTD-ILD). Rédige un rapport structuré, professionnel et concis.`;
+  const system_prompt = `Tu es un pneumologue expert spécialisé dans les pneumopathies interstitielles diffuses (PID), agissant dans le cadre d'une discussion multidisciplinaire (DMD). 
+                
+  TES RÉFÉRENCES :
+  1. Pour la FPI : Guide Tunisien 2022 et SPLF.
+  2. Pour les PID associées aux connectivites (CTD-ILD) : Utilise IMPÉRATIVEMENT les **Recommandations ERS/EULAR 2025**.
+  
+  POINTS CLÉS ERS/EULAR 2025 :
+  - Classification précise (SSc-ILD, RA-ILD, IIM-ILD).
+  - Traitement adapté au phénotype (Tocilizumab SSc inflammatoire, Nintedanib si fibrose progressive, Rituximab, MMF).
+  
+  Rédige un rapport structuré, professionnel et concis.`;
+
   const user_prompt = `Analyse les données de la consultation du **${new Date(consultation.consultationDate).toLocaleDateString('fr-FR')}** pour le patient **${patient.firstName} ${patient.lastName}**.
 
 Voici les données du dossier de consultation :
@@ -147,13 +167,13 @@ En te basant UNIQUEMENT sur ces informations mais en appliquant une démarche cl
 ## 1. Synthèse Clinique
 Résume les points clés de l'anamnèse, de l'examen clinique et des expositions.
 ## 2. Analyse des Examens Complémentaires
-Interprète les résultats de la TDM-HR (en concluant sur un pattern PIC/UIP), des EFR et des autres examens.
+Interprète les résultats de la TDM-HR (pattern PIC/UIP ou Alternatif), des EFR et des autres examens.
 ## 3. Hypothèses Diagnostiques
 Liste les diagnostics les plus probables par ordre de priorité.
 ## 4. Discussion et Conclusion de la DMD
 Propose un diagnostic de travail, évalue le niveau de certitude, et discute de la nécessité d'examens supplémentaires (LBA, biopsie).
 ## 5. Plan de Prise en Charge Proposé
-Suggère les prochaines étapes (thérapeutiques, surveillance, etc.).`;
+Suggère les prochaines étapes (thérapeutiques selon ERS 2025 si CTD-ILD, surveillance, etc.).`;
 
   const chatCompletion = await deepseek.chat.completions.create({
     model: 'deepseek-chat',
@@ -169,7 +189,10 @@ Suggère les prochaines étapes (thérapeutiques, surveillance, etc.).`;
 async function handleGeneralSynthesis(deepseek: OpenAI, data: any) {
   const { patient, historyPrompt } = data;
   
-  const system_prompt = `Tu es un pneumologue expert qui rédige une synthèse de suivi pour un dossier patient. Sois structuré, professionnel et concis. Analyse l'historique complet des consultations du patient **${patient.firstName} ${patient.lastName}**. **IMPORTANT:** L'historique fourni contient des résumés pour les consultations plus anciennes ("RÉSUMÉ CLÉ") et les détails complets pour la ou les plus récentes ("DÉTAILS COMPLETS"). Ta synthèse doit intégrer toutes ces informations pour donner une vue d'ensemble de l'évolution.`;
+  const system_prompt = `Tu es un pneumologue expert qui rédige une synthèse de suivi pour un dossier patient. Sois structuré, professionnel et concis. Analyse l'historique complet des consultations du patient **${patient.firstName} ${patient.lastName}**. 
+  
+  Utilise les critères de **Fibrose Pulmonaire Progressive (PPF)** des guidelines ERS/ATS et les recommandations ERS/EULAR 2025 si une connectivite est présente.`;
+  
   const user_prompt = `Voici les données du dossier :
 ---
 **PATIENT:**
@@ -191,7 +214,7 @@ Analyse la trajectoire des EFR (CVF, DLCO) et des données du TM6 en te basant s
 ## 4. Tolérance et Efficacité des Traitements
 Fais le point sur les traitements en cours, leur tolérance et leur impact sur la progression de la maladie.
 ## 5. Conclusion et Plan de Suivi
-Conclus sur le statut actuel de la maladie (stable, en progression) et propose un plan pour la suite (ajustement thérapeutique, examens à prévoir, etc.).`;
+Conclus sur le statut actuel de la maladie (stable, en progression/PPF) et propose un plan pour la suite.`;
 
   const chatCompletion = await deepseek.chat.completions.create({
     model: 'deepseek-chat',

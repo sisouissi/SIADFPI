@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Consultation, DMDFormData, Patient, TestResult } from '../types';
 import { parseMarkdown } from '../services/markdownParser';
@@ -8,6 +9,21 @@ import { generateConsultationSynthesis, generateExamSuggestions } from '../servi
 import { SparklesIcon } from '../constants';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+
+
+// --- HELPER FUNCTIONS ---
+const calculateAgeAtConsultation = (dob: string | Date, consultationDate: string | Date): number => {
+    if (!dob || !consultationDate) return 0;
+    const birthDate = new Date(dob);
+    const consultDate = new Date(consultationDate);
+    
+    let age = consultDate.getFullYear() - birthDate.getFullYear();
+    const m = consultDate.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && consultDate.getDate() < birthDate.getDate())) {
+        age--;
+    }
+    return age;
+};
 
 
 // --- HELPER COMPONENTS ---
@@ -292,6 +308,74 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
     useEffect(() => {
         setFormData(initialConsultation.formData);
     }, [initialConsultation]);
+
+    // Automatically calculate age and populate form data when patient is loaded
+    useEffect(() => {
+        if (patient && patient.dateOfBirth) {
+            const calculatedAge = calculateAgeAtConsultation(patient.dateOfBirth, initialConsultation.consultationDate);
+            
+            setFormData(prev => {
+                // Prevent infinite loop if value is already correct
+                if (prev.anamnese.patientAge === calculatedAge) {
+                    return prev;
+                }
+                return {
+                    ...prev,
+                    anamnese: {
+                        ...prev.anamnese,
+                        patientAge: calculatedAge
+                    }
+                };
+            });
+        }
+    }, [patient, initialConsultation.consultationDate]);
+
+    // Automatically calculate spirometry pattern based on values
+    useEffect(() => {
+        const { vemsValue, cvfValue, cptPercent, cvfPercent } = formData.examens.efr;
+        if (typeof vemsValue === 'number' && typeof cvfValue === 'number' && cvfValue > 0) {
+            const ratio = vemsValue / cvfValue;
+            // Standard GOLD/ATS criteria simplified
+            const isObstructive = ratio < 0.70;
+
+            // Definition of Restriction: TLC (CPT) < 80% is Gold Standard.
+            // If TLC not available, FVC (CVF) < 80% is suggestive but not diagnostic (could be air trapping),
+            // but for this auto-calculator, we will use it as a proxy if CPT is missing.
+            const restrictValue = (typeof cptPercent === 'number' && cptPercent > 0) ? cptPercent : cvfPercent;
+            const isRestrictive = (typeof restrictValue === 'number') && restrictValue < 80;
+
+            let result: string = 'Normal';
+            if (isObstructive && isRestrictive) result = 'Mixte';
+            else if (isObstructive) result = 'Obstructif';
+            else if (isRestrictive) result = 'Restrictif';
+
+            setFormData(prev => {
+                if (prev.examens.efr.efrInterpretation === result) return prev;
+                return {
+                    ...prev,
+                    examens: {
+                        ...prev.examens,
+                        efr: {
+                            ...prev.examens.efr,
+                            efrInterpretation: result as any
+                        }
+                    }
+                };
+            });
+        } else if ((vemsValue === '' || cvfValue === '') && formData.examens.efr.efrInterpretation !== '') {
+             // Reset if values are cleared
+             setFormData(prev => ({
+                ...prev,
+                examens: {
+                    ...prev.examens,
+                    efr: {
+                        ...prev.examens.efr,
+                        efrInterpretation: ''
+                    }
+                }
+            }));
+        }
+    }, [formData.examens.efr.vemsValue, formData.examens.efr.cvfValue, formData.examens.efr.cptPercent, formData.examens.efr.cvfPercent]);
     
     const steps = [
         { id: 1, title: 'Anamnèse' },
@@ -512,6 +596,7 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
         return missing;
     };
 
+    // FIX: Refactor handleSaveClick to use the streaming version of generateConsultationSynthesis.
     const handleSaveClick = async () => {
         const missingFields = validateForm();
         if (missingFields.length > 0) {
@@ -525,39 +610,24 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
             if (!patient) throw new Error("Données patient non disponibles.");
             
             let summary = "";
-            let fullSuggestions = "";
-            
-            // Run both API calls in parallel
-            await Promise.all([
-                generateConsultationSynthesis(
-                    patient, 
-                    { ...initialConsultation, formData },
-                    (chunk) => { summary += chunk; }
-                ),
-                (async () => {
-                    try {
-                        await generateExamSuggestions(patient, formData, (chunk) => {
-                            fullSuggestions += chunk;
-                        });
-                    } catch (suggestionError) {
-                        // Don't block the main process if suggestions fail
-                        console.error("Erreur lors de la génération des suggestions:", suggestionError);
-                    }
-                })()
-            ]);
+            await generateConsultationSynthesis(
+                patient, 
+                { ...initialConsultation, formData },
+                (chunk) => { summary += chunk; }
+            );
             
             const aiMarker = '--- RAPPORT IA ---';
             const userSummaryPart = formData.synthese.summary.split(aiMarker)[0].trim();
 
             const cleanedSummary = summary.includes('---') ? summary.split('---').slice(1).join('---').trim() : summary;
+
             const newFullSummary = `${userSummaryPart}\n\n${aiMarker}\n${cleanedSummary}`.trim();
             
             setFormData(prev => ({
                 ...prev,
                 synthese: {
                     ...prev.synthese,
-                    summary: newFullSummary,
-                    aiSuggestions: fullSuggestions,
+                    summary: newFullSummary
                 }
             }));
             
@@ -579,51 +649,44 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
         setIsConfirmationModalOpen(false);
     };
 
-    const handlePrint = () => {
-        const contentToPrint = reportToPrintRef.current;
-        if (!contentToPrint) return;
-
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-            printWindow.document.write('<html><head><title>Rapport de Consultation</title>');
-            printWindow.document.write(`<style>
-                @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
-                @page { 
-                    margin: 1.5cm;
-                    @bottom-center {
-                        content: "Page " counter(page) " / " counter(pages);
-                        font-size: 9pt;
-                        color: #808080;
+    const handlePrintReport = () => {
+        const contentToPrint = reportToPrintRef.current?.innerHTML;
+        if (contentToPrint && patient) {
+            const printWindow = window.open('', '_blank', 'height=800,width=800');
+            if (printWindow) {
+                printWindow.document.write('<html><head><title>Rapport de Consultation</title>');
+                printWindow.document.write(`<style>
+                    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+                    body { font-family: 'Poppins', sans-serif; line-height: 1.6; color: #334155; margin: 2rem; }
+                    h1, h2, h3, h4 { color: #0F172A; }
+                    h1 { font-size: 1.5rem; }
+                    h2, h3, h4 {
+                        font-size: 1.25rem; font-weight: 700; color: #1e293b;
+                        border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem;
+                        margin-top: 1.5rem; margin-bottom: 1rem;
                     }
-                }
-                body { font-family: 'Poppins', sans-serif; line-height: 1.6; color: #334155; margin: 0; }
-                h1, h2, h3, h4 { color: #0F172A; margin: 0; }
-                .ai-report-content h2, .ai-report-content h3, .ai-report-content h4 {
-                    font-size: 1.25rem; font-weight: 700; color: #1e293b;
-                    border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem;
-                    margin-top: 1.5rem; margin-bottom: 1rem;
-                }
-                .ai-report-content p { margin-bottom: 1rem; }
-                .ai-report-content ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
-                .ai-report-content li { margin-bottom: 0.5rem; }
-                @media print { 
-                    body { -webkit-print-color-adjust: exact; } 
-                    .no-print { display: none; }
-                    h1, h2, h3, h4, h5, h6 { page-break-after: avoid; }
-                    p, ul, table { page-break-inside: avoid; }
-                }
-            </style>`);
-            printWindow.document.write('</head><body>');
-            printWindow.document.write(contentToPrint.innerHTML);
-            printWindow.document.write('</body></html>');
-            printWindow.document.close();
-            printWindow.focus();
-            setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
+                    p { margin-bottom: 1rem; }
+                    ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+                    li { margin-bottom: 0.5rem; }
+                    @media print { body { -webkit-print-color-adjust: exact; } }
+                </style>`);
+                printWindow.document.write('</head><body>');
+                printWindow.document.write('<h1>Rapport de Consultation</h1>');
+                printWindow.document.write(`<p><b>Patient :</b> ${patient.firstName} ${patient.lastName.toUpperCase()}</p>`);
+                printWindow.document.write(`<p><b>Date :</b> ${new Date(initialConsultation.consultationDate).toLocaleDateString('fr-FR')}</p>`);
+                printWindow.document.write(`<p><b>Médecin Référent :</b> ${patient.referringDoctor}</p>`);
+                printWindow.document.write('<hr style="margin-top: 1rem; margin-bottom: 1rem; border: 0; border-top: 1px solid #e2e8f0;">');
+                printWindow.document.write(contentToPrint);
+                printWindow.document.write('</body></html>');
+                printWindow.document.close();
+                printWindow.focus();
+                setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
+            }
         }
     };
 
     const handleDownloadPdf = () => {
-        handlePrint();
+        handlePrintReport();
     };
 
     const baseTests = ['AAN', 'Facteur Rhumatoïde', 'Anti-CCP', 'ANCA', 'CPK'];
@@ -900,43 +963,12 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
                                     <div>
                                         <p className="font-semibold text-slate-600 mb-2">Bilan de base</p>
                                         {baseTests.map(test => (
-                                            <React.Fragment key={test}>
-                                                <ImmunoTestRow 
-                                                    testName={test}
-                                                    status={formData.medicamenteux.immunology.tests[test]}
-                                                    onChange={handleImmunoTestChange}
-                                                />
-                                                {test === 'AAN' && (
-                                                    <ConditionalField show={formData.medicamenteux.immunology.tests['AAN'] === 'Positif'}>
-                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-3">
-                                                            <div>
-                                                                <label htmlFor="medicamenteux.immunology.aanTiter" className="block text-sm font-medium text-slate-600 mb-1">Titre des AAN :</label>
-                                                                <select name="medicamenteux.immunology.aanTiter" id="medicamenteux.immunology.aanTiter" value={formData.medicamenteux.immunology.aanTiter} onChange={handleInputChange} className="form-select w-full bg-white border-slate-300 rounded-md p-2">
-                                                                    <option value="">Sélectionner</option>
-                                                                    <option value="Négatif">Négatif</option>
-                                                                    <option value="< 1/160">&lt; 1/160</option>
-                                                                    <option value="1/160">1/160</option>
-                                                                    <option value="1/320">1/320</option>
-                                                                    <option value="1/640">1/640</option>
-                                                                    <option value="> 1/640">&gt; 1/640</option>
-                                                                </select>
-                                                            </div>
-                                                            <div>
-                                                                <label htmlFor="medicamenteux.immunology.aanPattern" className="block text-sm font-medium text-slate-600 mb-1">Aspect des AAN :</label>
-                                                                <select name="medicamenteux.immunology.aanPattern" id="medicamenteux.immunology.aanPattern" value={formData.medicamenteux.immunology.aanPattern} onChange={handleInputChange} className="form-select w-full bg-white border-slate-300 rounded-md p-2">
-                                                                    <option value="">Sélectionner</option>
-                                                                    <option value="Non applicable">Non applicable</option>
-                                                                    <option value="Moucheté">Moucheté</option>
-                                                                    <option value="Homogène">Homogène</option>
-                                                                    <option value="Nucléolaire">Nucléolaire</option>
-                                                                    <option value="Centromérique">Centromérique</option>
-                                                                    <option value="Cytoplasmique">Cytoplasmique</option>
-                                                                </select>
-                                                            </div>
-                                                        </div>
-                                                    </ConditionalField>
-                                                )}
-                                            </React.Fragment>
+                                            <ImmunoTestRow 
+                                                key={test}
+                                                testName={test}
+                                                status={formData.medicamenteux.immunology.tests[test]}
+                                                onChange={handleImmunoTestChange}
+                                            />
                                         ))}
                                     </div>
                                     <div>
@@ -951,6 +983,34 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
                                         ))}
                                     </div>
                                 </div>
+                                <ConditionalField show={formData.medicamenteux.immunology.tests['AAN'] === 'Positif'}>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-200">
+                                        <div>
+                                            <label htmlFor="medicamenteux.immunology.aanTiter" className="block text-sm font-medium text-slate-600 mb-1">Titre des AAN :</label>
+                                            <select name="medicamenteux.immunology.aanTiter" id="medicamenteux.immunology.aanTiter" value={formData.medicamenteux.immunology.aanTiter} onChange={handleInputChange} className="form-select w-full bg-white border-slate-300 rounded-md p-2">
+                                                <option value="">Sélectionner</option>
+                                                <option value="Négatif">Négatif</option>
+                                                <option value="< 1/160">&lt; 1/160</option>
+                                                <option value="1/160">1/160</option>
+                                                <option value="1/320">1/320</option>
+                                                <option value="1/640">1/640</option>
+                                                <option value="> 1/640">&gt; 1/640</option>
+                                            </select>
+                                        </div>
+                                         <div>
+                                            <label htmlFor="medicamenteux.immunology.aanPattern" className="block text-sm font-medium text-slate-600 mb-1">Aspect des AAN :</label>
+                                            <select name="medicamenteux.immunology.aanPattern" id="medicamenteux.immunology.aanPattern" value={formData.medicamenteux.immunology.aanPattern} onChange={handleInputChange} className="form-select w-full bg-white border-slate-300 rounded-md p-2">
+                                                <option value="">Sélectionner</option>
+                                                <option value="Non applicable">Non applicable</option>
+                                                <option value="Moucheté">Moucheté</option>
+                                                <option value="Homogène">Homogène</option>
+                                                <option value="Nucléolaire">Nucléolaire</option>
+                                                <option value="Centromérique">Centromérique</option>
+                                                <option value="Cytoplasmique">Cytoplasmique</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </ConditionalField>
                                 <QuestionBlock className="mt-4 pt-4 border-t border-slate-200">
                                     <Question>Autres résultats immunologiques ou biologiques pertinents :</Question>
                                     <textarea name="medicamenteux.immunology.otherTests" value={formData.medicamenteux.immunology.otherTests} onChange={handleInputChange} placeholder="Ex: FR positif à X UI/mL, CPK à X UI/L..." rows={2} className="w-full bg-white border border-slate-300 rounded-lg p-3 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-blue" />
@@ -1052,6 +1112,18 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
                                     <p className="font-bold text-sm text-slate-700">Conclusion radiologique probable :</p>
                                     <p className={`text-xl font-bold ${derivedPattern.color}`}>{derivedPattern.name}</p>
                                     <p className={`text-xs mt-1 italic ${derivedPattern.color}`}>{derivedPattern.reason}</p>
+                                    
+                                    {derivedPattern.name === "Pattern en faveur d'un Diagnostic Alternatif" && (
+                                        <div className="mt-3 bg-white p-3 rounded border border-red-200">
+                                            <p className="font-semibold text-red-800 text-sm mb-2">Examens à envisager selon l'orientation clinique :</p>
+                                            <ul className="list-disc list-inside text-xs text-slate-700 space-y-1">
+                                                <li><strong>Suspicion Amylose :</strong> BGSA, graisse abdominale.</li>
+                                                <li><strong>Suspicion PHS :</strong> LBA (lymphocytose), précipitines.</li>
+                                                <li><strong>Suspicion Sarcoïdose :</strong> Biopsies, ECA.</li>
+                                                <li><strong>Suspicion Connectivite :</strong> Bilan immuno étendu, capillaroscopie.</li>
+                                            </ul>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -1160,14 +1232,16 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
                                     <EfrInputPair label="DLCO" baseName="examens.efr.dlco" value={formData.examens.efr.dlcoValue} percent={formData.examens.efr.dlcoPercent} onChange={handleInputChange} unit="ml/min/mmHg" />
                                 </div>
                                 <div className="mt-2">
-                                     <label htmlFor="examens.efr.efrInterpretation" className="block text-sm font-medium text-slate-600 mb-1">Interprétation du pattern :</label>
-                                     <select name="examens.efr.efrInterpretation" id="examens.efr.efrInterpretation" value={formData.examens.efr.efrInterpretation} onChange={handleInputChange} className="form-select w-full md:w-1/2 bg-white border-slate-300 rounded-md p-2">
-                                        <option value="">Sélectionner</option>
-                                        <option value="Restrictif">Syndrome restrictif</option>
-                                        <option value="Mixte">Syndrome mixte (obstructif + restrictif)</option>
-                                        <option value="Normal">Volumes normaux</option>
-                                        <option value="Autre">Autre</option>
-                                     </select>
+                                     <label htmlFor="examens.efr.efrInterpretation" className="block text-sm font-medium text-slate-600 mb-1">Interprétation du pattern (calculé automatiquement) :</label>
+                                     <input
+                                        type="text"
+                                        name="examens.efr.efrInterpretation"
+                                        id="examens.efr.efrInterpretation"
+                                        value={formData.examens.efr.efrInterpretation}
+                                        readOnly
+                                        className="form-input w-full md:w-1/2 bg-slate-100 border-slate-300 rounded-md p-2 text-slate-700 font-semibold cursor-not-allowed"
+                                        placeholder="Saisissez VEMS, CVF et CPT ci-dessus"
+                                     />
                                 </div>
                             </QuestionBlock>
                             <QuestionBlock className="md:col-span-2">
@@ -1447,26 +1521,21 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
                 title="Consultation Enregistrée avec Succès"
                 closeButtonText="Terminer"
             >
-                <div className="max-h-[60vh] overflow-y-auto pr-2">
-                    <div ref={reportToPrintRef}>
-                         <div className="border-b border-slate-200 pb-4 mb-4">
-                            <h1 className="text-2xl font-bold text-slate-800">Rapport de Consultation</h1>
-                        </div>
-                        <p className="font-bold text-slate-800">Patient: <span className="font-normal">{patient?.firstName} {patient?.lastName.toUpperCase()}</span></p>
-                        <p className="font-bold text-slate-800">Date: <span className="font-normal">{new Date(initialConsultation.consultationDate).toLocaleDateString('fr-FR')}</span></p>
-                        <p className="font-bold text-slate-800">Médecin Référent: <span className="font-normal">{patient?.referringDoctor}</span></p>
-                        
+                <div ref={reportToPrintRef}>
+                    <p className="mb-4">La consultation a été enregistrée. Voici la synthèse générée par l'IA qui a été ajoutée à l'observation :</p>
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg max-h-[50vh] overflow-y-auto">
                         {generatedSummary && (
                             <>
+                                <h4 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-3">Synthèse de la Consultation</h4>
                                 <div 
-                                    className="ai-report-content mt-4"
+                                    className="ai-report-content"
                                     dangerouslySetInnerHTML={{ __html: parseMarkdown(generatedSummary) }}
                                 ></div>
                             </>
                         )}
                         {formData.synthese.aiSuggestions && (
                             <div className="mt-6">
-                                <h2 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-3">Suggestions d'examens complémentaires</h2>
+                                <h4 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-3">Suggestions d'examens complémentaires</h4>
                                 <div 
                                     className="ai-report-content"
                                     dangerouslySetInnerHTML={{ __html: parseMarkdown(formData.synthese.aiSuggestions) }}
@@ -1475,18 +1544,12 @@ const DMDFormComponent: React.FC<DMDFormComponentProps> = ({ initialConsultation
                         )}
                     </div>
                 </div>
-                 <div className="mt-6 pt-4 border-t border-slate-200 flex justify-end gap-3 no-print">
+                <div className="mt-6 pt-4 border-t border-slate-200 flex justify-end">
                     <button
-                        onClick={handlePrint}
-                        className="px-4 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-sm hover:shadow-md"
+                        onClick={handlePrintReport}
+                        className="px-6 py-2 bg-white text-slate-700 font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
                     >
-                        Imprimer
-                    </button>
-                    <button
-                        onClick={handleDownloadPdf}
-                        className="px-4 py-2 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700"
-                    >
-                        Télécharger en PDF
+                        Imprimer le rapport
                     </button>
                 </div>
             </Modal>
