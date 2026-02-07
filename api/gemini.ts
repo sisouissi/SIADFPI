@@ -59,9 +59,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 3. Si suspicion de pattern bronchiolocentrique, utilise le terme **BIP** (Bronchiolocentric Interstitial Pneumonia).
                 4. Si suspicion de connectivite (CTD-ILD), applique les règles de dépistage (TDM-HR + anticorps spécifiques).
 
-                Si le dossier semble complet, indique-le simplement. Propose une liste d'examens complémentaires sous forme de liste à puces Markdown. Pour chaque suggestion, fournis une brève justification clinique.`;
+                **CRITÈRE DE PERTINENCE STRICT :** Ne suggère QUE les examens strictement nécessaires et validés par les recommandations pour confirmer le diagnostic ou écarter un diagnostic différentiel majeur. Évite absolument les examens superflus ou "au cas où".
+
+                Si le dossier est suffisant pour poser un diagnostic avec un niveau de confiance ≥90% (Diagnostic Confiant), indique simplement "Aucun examen supplémentaire nécessaire". Sinon, propose une liste restreinte et ciblée sous forme de liste à puces Markdown.`;
                 
-                user_prompt = `En te basant sur le dossier patient incomplet ci-dessous, identifie les 3 examens complémentaires les plus pertinents à suggérer pour affiner le diagnostic ou le bilan pré-thérapeutique.\n\nDOSSIER PATIENT:\n---\n**Patient:** ${patient.lastName} ${patient.firstName}, né(e) le ${patient.dateOfBirth}\n**Données actuelles:**\n${formattedData}\n---`;
+                user_prompt = `En te basant sur le dossier patient ci-dessous, identifie UNIQUEMENT les examens complémentaires indispensables (si nécessaire) pour affiner le diagnostic.\n\nDOSSIER PATIENT:\n---\n**Patient:** ${patient.lastName} ${patient.firstName}, né(e) le ${patient.dateOfBirth}\n**Données actuelles:**\n${formattedData}\n---`;
                 break;
             }
             case 'generateConsultationSynthesis': {

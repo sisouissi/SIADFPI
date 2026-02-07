@@ -81,14 +81,14 @@ async function handleExamSuggestionsStream(deepseek: OpenAI, data: any, res: Ver
 
   const system_prompt = `Tu es un pneumologue expert en PID. Ton analyse doit être concise et justifiée. Ne suggère que ce qui est cliniquement pertinent selon les **recommandations ERS/ATS 2025** et ERS/EULAR 2025.
                 
-  Règles spécifiques ERS/ATS 2025 :
-  1. Classification : Utilise les termes **BIP** (pour les patterns bronchiolocentriques), **AMP** (ex-DIP), et **iDAD** (ex-AIP).
-  2. Dépistage : TDM-HR recommandée. Distingue les patterns interstitiels (UIP, NSIP, BIP) des patterns alvéolaires (OP, RB-ILD).
-  3. Si suspicion connectivite : Applique ERS/EULAR 2025 (TDM-HR + anticorps).
+  Règles spécifiques :
+  1. Classification 2025 : Termes **BIP**, **AMP**, **iDAD**.
+  2. Pertinence : Ne propose QUE les examens **strictement nécessaires et validés** pour le diagnostic. Évite toute suggestion superflue.
+  3. Si le dossier permet un diagnostic confiant (≥90%), réponds simplement "Le dossier est complet pour le diagnostic".
   
-  Si le dossier semble complet, indique-le simplement. Propose une liste d'examens complémentaires sous forme de liste à puces Markdown. Pour chaque suggestion, fournis une brève justification clinique (1-2 lignes max).`;
+  Si des examens manquent, propose une liste restreinte sous forme de liste à puces Markdown. Pour chaque suggestion, fournis une justification clinique brève (1 ligne).`;
   
-  const user_prompt = `En te basant sur le dossier patient incomplet ci-dessous, identifie les 3 examens complémentaires les plus pertinents à suggérer pour affiner le diagnostic ou le bilan pré-thérapeutique.
+  const user_prompt = `En te basant sur le dossier patient ci-dessous, identifie les examens complémentaires indispensables (le cas échéant) pour affiner le diagnostic.
 
 DOSSIER PATIENT:
 ---
