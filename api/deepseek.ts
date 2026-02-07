@@ -79,15 +79,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 async function handleExamSuggestionsStream(deepseek: OpenAI, data: any, res: VercelResponse) {
   const { patient, formattedData } = data;
 
-  const system_prompt = `Tu es un pneumologue expert en PID. Ton analyse doit être concise et justifiée. Ne suggère que ce qui est cliniquement pertinent selon les recommandations ERS/EULAR 2025. 
+  const system_prompt = `Tu es un pneumologue expert en PID. Ton analyse doit être concise et justifiée. Ne suggère que ce qui est cliniquement pertinent selon les **recommandations ERS/ATS 2025** et ERS/EULAR 2025.
                 
-  Règles spécifiques ERS/EULAR 2025 à appliquer si suspicion de connectivite :
-  1. Dépistage : TDM-HR recommandée (EFR insuffisantes) pour SSc, et pour PR/Myosites/Sjögren si facteurs de risque.
-  2. Si suspicion SSc : Capillaroscopie, auto-anticorps spécifiques.
-  3. Si suspicion Myosite (IIM) : Panel myosite (Anti-Synthetases, Anti-MDA5, Anti-Ro52).
-  4. Si suspicion PR : Anti-CCP, Facteur Rhumatoïde.
+  Règles spécifiques ERS/ATS 2025 :
+  1. Classification : Utilise les termes **BIP** (pour les patterns bronchiolocentriques), **AMP** (ex-DIP), et **iDAD** (ex-AIP).
+  2. Dépistage : TDM-HR recommandée. Distingue les patterns interstitiels (UIP, NSIP, BIP) des patterns alvéolaires (OP, RB-ILD).
+  3. Si suspicion connectivite : Applique ERS/EULAR 2025 (TDM-HR + anticorps).
   
-  Si le dossier semble complet, indique-le simplement. Propose une liste d'examens complémentaires sous forme de liste à puces Markdown. Pour chaque suggestion, fournis une brève justification clinique (1-2 lignes max). Ne fournis que la liste Markdown, sans introduction ni conclusion. Exemple de format : * **Examen Suggéré 1:** Justification brève.`;
+  Si le dossier semble complet, indique-le simplement. Propose une liste d'examens complémentaires sous forme de liste à puces Markdown. Pour chaque suggestion, fournis une brève justification clinique (1-2 lignes max).`;
   
   const user_prompt = `En te basant sur le dossier patient incomplet ci-dessous, identifie les 3 examens complémentaires les plus pertinents à suggérer pour affiner le diagnostic ou le bilan pré-thérapeutique.
 
@@ -127,7 +126,16 @@ ${formattedData}
 }
 
 async function handleGetAnswer(deepseek: OpenAI, question: string) {
-  const system_prompt = `Tu es un assistant expert spécialisé dans la Fibrose Pulmonaire Idiopathique (FPI) et les PID associées aux connectivites. Ta base de connaissances inclut le guide Tunisien de 2022, les recommandations SPLF, et les **directives ERS/EULAR 2025 pour les CTD-ILD**. Réponds à la question de l'utilisateur de manière précise, professionnelle et complète en te basant sur cet ensemble de références. Structure ta réponse clairement. Si possible, mentionne la source de l'information (ex: "Selon les recommandations ERS 2025...").`;
+  const system_prompt = `Tu es un assistant expert spécialisé dans les PID. Ta base de connaissances intègre la **Mise à jour ERS/ATS 2025 sur la classification des pneumopathies interstitielles**.
+  
+  POINTS IMPORTANTS À RESPECTER :
+  - **Nomenclature :** Parle de BIP (Bronchiolocentric Interstitial Pneumonia) au lieu de pattern PHS. Parle d'AMP (Alveolar Macrophage Pneumonia) au lieu de DIP.
+  - **Structure :** Distingue "Troubles Interstitiels" (UIP, NSIP, BIP, PPFE...) et "Troubles de Comblement Alvéolaire" (OP, RB-ILD, AMP).
+  - **Certitude :** Mentionne l'importance d'un diagnostic "Confiant" (≥90%) ou "Provisoire".
+  - **FPI :** Est un diagnostic de pattern UIP idiopathique.
+  
+  Réponds à la question de l'utilisateur de manière précise, professionnelle et complète en te basant sur ces nouvelles références.`;
+  
   const user_prompt = `Question: "${question}"`;
 
   const chatCompletion = await deepseek.chat.completions.create({
@@ -143,15 +151,17 @@ async function handleGetAnswer(deepseek: OpenAI, question: string) {
 async function handleConsultationSynthesis(deepseek: OpenAI, data: any) {
   const { patient, consultation, formattedData } = data;
   
-  const system_prompt = `Tu es un pneumologue expert spécialisé dans les pneumopathies interstitielles diffuses (PID), agissant dans le cadre d'une discussion multidisciplinaire (DMD). 
+  const system_prompt = `Tu es un pneumologue expert spécialisé dans les pneumopathies interstitielles diffuses (PID).
                 
   TES RÉFÉRENCES :
-  1. Pour la FPI : Guide Tunisien 2022 et SPLF.
-  2. Pour les PID associées aux connectivites (CTD-ILD) : Utilise IMPÉRATIVEMENT les **Recommandations ERS/EULAR 2025**.
+  1. **Mise à jour ERS/ATS 2025** (Classification des PID).
+  2. ERS/EULAR 2025 (Connectivites).
+  3. Guide Tunisien 2022 (FPI).
   
-  POINTS CLÉS ERS/EULAR 2025 :
-  - Classification précise (SSc-ILD, RA-ILD, IIM-ILD).
-  - Traitement adapté au phénotype (Tocilizumab SSc inflammatoire, Nintedanib si fibrose progressive, Rituximab, MMF).
+  DIRECTIVES DE RÉDACTION ERS/ATS 2025 :
+  - Analyse TDM : Identifie le pattern dominant : UIP, NSIP, **BIP** (nouveau terme pour bronchiolocentrique/PHS), **AMP** (nouveau terme pour DIP), DAD, OP, ou PPFE.
+  - Classement : Précise s'il s'agit d'un trouble interstitiel ou de comblement alvéolaire.
+  - Diagnostic : Évalue le niveau de confiance (Confiant, Provisoire, Inclassable). Utilise le terme "Provisoire" si <90% de certitude.
   
   Rédige un rapport structuré, professionnel et concis.`;
 
@@ -162,18 +172,18 @@ Voici les données du dossier de consultation :
 ${formattedData}
 ---
 
-En te basant UNIQUEMENT sur ces informations mais en appliquant une démarche clinique rigoureuse, rédige un rapport argumenté en utilisant impérativement le format Markdown avec les sections suivantes :
+En te basant UNIQUEMENT sur ces informations mais en appliquant la classification ERS 2025, rédige un rapport argumenté en utilisant impérativement le format Markdown avec les sections suivantes :
 
 ## 1. Synthèse Clinique
-Résume les points clés de l'anamnèse, de l'examen clinique et des expositions.
+Résume les points clés de l'anamnèse et de l'examen.
 ## 2. Analyse des Examens Complémentaires
-Interprète les résultats de la TDM-HR (pattern PIC/UIP ou Alternatif), des EFR et des autres examens.
+Interprète les résultats TDM (pattern UIP, NSIP, BIP, etc.) et EFR.
 ## 3. Hypothèses Diagnostiques
-Liste les diagnostics les plus probables par ordre de priorité.
+Liste les diagnostics probables (ex: FPI, BIP idiopathique ou secondaire, etc.).
 ## 4. Discussion et Conclusion de la DMD
-Propose un diagnostic de travail, évalue le niveau de certitude, et discute de la nécessité d'examens supplémentaires (LBA, biopsie).
+Propose un diagnostic, évalue la certitude (Confiant/Provisoire).
 ## 5. Plan de Prise en Charge Proposé
-Suggère les prochaines étapes (thérapeutiques selon ERS 2025 si CTD-ILD, surveillance, etc.).`;
+Suggère les prochaines étapes.`;
 
   const chatCompletion = await deepseek.chat.completions.create({
     model: 'deepseek-chat',
@@ -189,9 +199,11 @@ Suggère les prochaines étapes (thérapeutiques selon ERS 2025 si CTD-ILD, surv
 async function handleGeneralSynthesis(deepseek: OpenAI, data: any) {
   const { patient, historyPrompt } = data;
   
-  const system_prompt = `Tu es un pneumologue expert qui rédige une synthèse de suivi pour un dossier patient. Sois structuré, professionnel et concis. Analyse l'historique complet des consultations du patient **${patient.firstName} ${patient.lastName}**. 
+  const system_prompt = `Tu es un pneumologue expert qui rédige une synthèse de suivi. 
   
-  Utilise les critères de **Fibrose Pulmonaire Progressive (PPF)** des guidelines ERS/ATS et les recommandations ERS/EULAR 2025 si une connectivite est présente.`;
+  Utilise :
+  - **Fibrose Pulmonaire Progressive (PPF)** (critères ERS/ATS).
+  - Terminologie **ERS/ATS 2025** (BIP, AMP, iDAD, PPFE...).`;
   
   const user_prompt = `Voici les données du dossier :
 ---
@@ -203,18 +215,15 @@ async function handleGeneralSynthesis(deepseek: OpenAI, data: any) {
 ${historyPrompt}
 ---
 
-Rédige un rapport de synthèse concis mais complet, en utilisant le format Markdown avec les sections suivantes :
+Rédige un rapport de synthèse concis mais complet (format Markdown) :
 
 ## 1. Résumé du Cas
-Présente brièvement le patient, son diagnostic initial et le contexte du suivi.
+Présente le patient et son diagnostic (terminologie 2025).
 ## 2. Évolution Clinique et Symptomatique
-Décris l'évolution des symptômes (dyspnée, toux) au fil des consultations en te basant sur les informations fournies.
 ## 3. Évolution Fonctionnelle et Radiologique
-Analyse la trajectoire des EFR (CVF, DLCO) et des données du TM6 en te basant sur les points clés des résumés et les détails de la dernière consultation.
 ## 4. Tolérance et Efficacité des Traitements
-Fais le point sur les traitements en cours, leur tolérance et leur impact sur la progression de la maladie.
 ## 5. Conclusion et Plan de Suivi
-Conclus sur le statut actuel de la maladie (stable, en progression/PPF) et propose un plan pour la suite.`;
+Statut (stable, PPF) et plan.`;
 
   const chatCompletion = await deepseek.chat.completions.create({
     model: 'deepseek-chat',
